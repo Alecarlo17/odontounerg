@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="OdontoUNERG - Plataforma digital que conecta estudiantes de odontología con pacientes de la UNERG">
+  <title>OdontoUNERG - Plataforma Odontológica Universitaria</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/landing.css">
+</head>
+<body>
+
+  <!-- ================================ HERO ================================ -->
+  <section class="landing-hero">
+    <nav class="landing-nav">
+      <div class="landing-nav-logo">
+        <div class="landing-nav-logo-icon"><i data-lucide="heart-pulse"></i></div>
+        OdontoUNERG
+      </div>
+      <div class="landing-nav-links">
+        <a href="#features">Características</a>
+        <a href="#how-it-works">Cómo Funciona</a>
+        <a href="#treatments">Tratamientos</a>
+        <a href="#about">Acerca de</a>
+        <a href="/login" class="landing-nav-cta">Iniciar Sesión</a>
+      </div>
+    </nav>
+
+    <div class="landing-hero-content">
+      <div class="landing-hero-left">
+        <div class="landing-hero-badge"><i data-lucide="graduation-cap" style="width:16px;height:16px;"></i> Universidad Nacional Experimental Rómulo Gallegos</div>
+        <h1 class="landing-hero-title">
+          Conectando <span>Estudiantes</span> con <span>Pacientes</span>
+        </h1>
+        <p class="landing-hero-desc">
+          Plataforma digital que facilita la organización de citas, solicitudes y comunicación entre estudiantes de odontología y pacientes, dentro de un entorno moderno y accesible.
+        </p>
+        <div class="landing-hero-actions">
+          <a href="/registro-paciente" class="landing-btn-primary">
+            Registrarse como Paciente →
+          </a>
+          <a href="/registro-estudiante" class="landing-btn-secondary">
+            Soy Estudiante
+          </a>
+        </div>
+        <div class="landing-hero-stats">
+          <div class="landing-stat">
+            <div class="landing-stat-value" id="stat-students">0</div>
+            <div class="landing-stat-label">Estudiantes</div>
+          </div>
+          <div class="landing-stat">
+            <div class="landing-stat-value" id="stat-patients">0</div>
+            <div class="landing-stat-label">Pacientes</div>
+          </div>
+          <div class="landing-stat">
+            <div class="landing-stat-value" id="stat-appointments">0</div>
+            <div class="landing-stat-label">Citas realizadas</div>
+          </div>
+        </div>
+      </div>
+      <div class="landing-hero-right">
+        <!-- Decoración visual -->
+        <div style="width:350px;height:350px;background:rgba(255,255,255,0.05);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);">
+          <div style="width:250px;height:250px;background:rgba(255,255,255,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+            <div style="color:white;"><i data-lucide="heart-pulse" style="width:80px;height:80px;"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================ FEATURES ================================ -->
+  <section class="landing-section landing-section-light" id="features">
+    <div class="landing-section-header">
+      <span class="landing-section-label">Características</span>
+      <h2 class="landing-section-title">Todo lo que necesitas en una plataforma</h2>
+      <p class="landing-section-desc">Herramientas diseñadas para optimizar la gestión odontológica universitaria</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="search"></i></div>
+        <h3 class="feature-title">Búsqueda Inteligente</h3>
+        <p class="feature-desc">Encuentra pacientes por tipo de tratamiento, edad o disponibilidad con filtros avanzados.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="mail"></i></div>
+        <h3 class="feature-title">Sistema de Solicitudes</h3>
+        <p class="feature-desc">Envía y gestiona solicitudes entre estudiantes y pacientes de forma organizada.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="message-circle"></i></div>
+        <h3 class="feature-title">Chat en Tiempo Real</h3>
+        <p class="feature-desc">Comunicación instantánea entre estudiante y paciente una vez aceptada la solicitud.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="calendar"></i></div>
+        <h3 class="feature-title">Gestión de Citas</h3>
+        <p class="feature-desc">Programa, confirma y gestiona citas odontológicas con estados claros y seguimiento.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="clipboard-list"></i></div>
+        <h3 class="feature-title">Historial Clínico</h3>
+        <p class="feature-desc">Registro detallado de tratamientos realizados con fechas, estados y observaciones.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="star"></i></div>
+        <h3 class="feature-title">Calificaciones</h3>
+        <p class="feature-desc">Sistema de reputación donde los pacientes pueden calificar a los estudiantes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="bell"></i></div>
+        <h3 class="feature-title">Notificaciones</h3>
+        <p class="feature-desc">Alertas en tiempo real sobre solicitudes, citas y mensajes nuevos.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="file-text"></i></div>
+        <h3 class="feature-title">Reportes PDF</h3>
+        <p class="feature-desc">Genera reportes académicos de citas y tratamientos en formato profesional.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon"><i data-lucide="shield-check"></i></div>
+        <h3 class="feature-title">Seguridad</h3>
+        <p class="feature-desc">Autenticación segura, protección por roles y políticas de seguridad a nivel de base de datos.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================ HOW IT WORKS ================================ -->
+  <section class="landing-section landing-section-dark" id="how-it-works">
+    <div class="landing-section-header">
+      <span class="landing-section-label" style="color:#60a5fa">Cómo Funciona</span>
+      <h2 class="landing-section-title">Proceso simple en 4 pasos</h2>
+      <p class="landing-section-desc">Desde el registro hasta la atención, todo en un flujo claro y organizado</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h3 class="step-title" style="color:white">Registro</h3>
+        <p class="step-desc">El estudiante y el paciente se registran en la plataforma con sus datos</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h3 class="step-title" style="color:white">Solicitud</h3>
+        <p class="step-desc">El estudiante busca pacientes y envía una solicitud de atención</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h3 class="step-title" style="color:white">Conexión</h3>
+        <p class="step-desc">El paciente acepta y se habilita el chat y el sistema de citas</p>
+      </div>
+      <div class="step-card">
+        <div class="step-number">4</div>
+        <h3 class="step-title" style="color:white">Atención</h3>
+        <p class="step-desc">Se agenda la cita, se realiza el tratamiento y se registra el historial</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================ TREATMENTS ================================ -->
+  <section class="landing-section landing-section-gray" id="treatments">
+    <div class="landing-section-header">
+      <span class="landing-section-label">Tratamientos</span>
+      <h2 class="landing-section-title">Áreas odontológicas disponibles</h2>
+      <p class="landing-section-desc">Los pacientes pueden solicitar atención en diversas especialidades</p>
+    </div>
+    <div class="treatments-grid">
+      <div class="treatment-tag">Ortodoncia</div>
+      <div class="treatment-tag">Extracción</div>
+      <div class="treatment-tag">Limpieza dental</div>
+      <div class="treatment-tag">Caries</div>
+      <div class="treatment-tag">Endodoncia</div>
+      <div class="treatment-tag">Prótesis</div>
+      <div class="treatment-tag">Ortopedia</div>
+      <div class="treatment-tag">Periodoncia</div>
+    </div>
+  </section>
+
+  <!-- ================================ ABOUT ================================ -->
+  <section class="landing-section landing-section-light" id="about">
+    <div class="landing-section-header">
+      <span class="landing-section-label">Acerca del Sistema</span>
+      <h2 class="landing-section-title">Arquitectura del Sistema</h2>
+      <p class="landing-section-desc">Desarrollado con tecnologías modernas, seguras y fáciles de mantener</p>
+    </div>
+    <div style="max-width:900px;margin:0 auto;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2rem;">
+        <div class="feature-card" style="text-align:center;">
+          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="globe" style="width:40px;height:40px;"></i></div>
+          <h3 class="feature-title">Frontend</h3>
+          <p class="feature-desc">HTML5, CSS3 y JavaScript puro. Sin frameworks complejos. Código limpio y organizado.</p>
+        </div>
+        <div class="feature-card" style="text-align:center;">
+          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="zap" style="width:40px;height:40px;"></i></div>
+          <h3 class="feature-title">Backend (MVC)</h3>
+          <p class="feature-desc">Node.js + Express con arquitectura MVC. Supabase como BaaS: auth, DB y realtime.</p>
+        </div>
+        <div class="feature-card" style="text-align:center;">
+          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="database" style="width:40px;height:40px;"></i></div>
+          <h3 class="feature-title">Base de Datos</h3>
+          <p class="feature-desc">PostgreSQL con Row Level Security (RLS) para protección a nivel de fila.</p>
+        </div>
+      </div>
+      <div class="feature-card" style="padding:2rem;">
+        <h3 class="feature-title" style="margin-bottom:1rem;font-size:1.15rem;"><i data-lucide="clipboard-list" style="width:18px;height:18px;display:inline;"></i> Información del Proyecto</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Universidad:</strong> UNERG</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Facultad:</strong> Odontología</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Tipo:</strong> Proyecto de Grado II</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Área:</strong> Informática</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Autenticación:</strong> Supabase Auth (JWT)</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Seguridad:</strong> RLS + Validaciones</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Comunicación:</strong> WebSocket (Realtime)</p>
+          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Almacenamiento:</strong> Supabase Storage</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================ CTA ================================ -->
+  <section class="landing-cta">
+    <h2 class="landing-cta-title">¿Listo para comenzar?</h2>
+    <p class="landing-cta-desc">Únase a la plataforma y conecte con estudiantes de odontología o pacientes que necesitan atención dental.</p>
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
+      <a href="/registro-paciente" class="landing-btn-primary" style="background:white;color:#2563eb;">Registrarse como Paciente</a>
+      <a href="/registro-estudiante" class="landing-btn-secondary" style="border-color:rgba(255,255,255,0.5);">Registrarse como Estudiante</a>
+      <a href="/login" class="landing-btn-secondary" style="border-color:rgba(255,255,255,0.5);">Iniciar Sesión</a>
+    </div>
+  </section>
+
+  <!-- ================================ FOOTER ================================ -->
+  <footer class="landing-footer">
+    <div class="landing-footer-logo"><i data-lucide="heart-pulse" style="width:20px;height:20px;"></i> OdontoUNERG</div>
+    <p class="landing-footer-text">Plataforma Odontológica Universitaria</p>
+    <p class="landing-footer-text">Universidad Nacional Experimental Rómulo Gallegos</p>
+    <p class="landing-footer-text" style="margin-top:1rem;font-size:0.75rem;opacity:0.5;">
+      © 2026 OdontoUNERG - Proyecto de Grado II - Área de Informática
+    </p>
+    <div class="landing-footer-links">
+      <a href="/login">Iniciar Sesión</a>
+      <a href="#features">Características</a>
+      <a href="#about">Acerca de</a>
+    </div>
+  </footer>
+
+  <!-- Script para cargar estadísticas públicas -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script>
+    // Cargar estadísticas públicas (conteos)
+    document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      try {
+        const { count: students } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
+        const { count: patients } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
+        const { count: appointments } = await supabase.from('appointments').select('*', { count: 'exact', head: true });
+        
+        // Animar contadores
+        animateCounter('stat-students', students || 0);
+        animateCounter('stat-patients', patients || 0);
+        animateCounter('stat-appointments', appointments || 0);
+      } catch (e) { console.log('Stats loading error'); }
+    });
+
+    function animateCounter(id, target) {
+      const el = document.getElementById(id);
+      let current = 0;
+      const step = Math.max(1, Math.ceil(target / 30));
+      const interval = setInterval(() => {
+        current += step;
+        if (current >= target) { current = target; clearInterval(interval); }
+        el.textContent = current;
+      }, 50);
+    }
+
+    // Smooth scroll para links internos
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+  </script>
+
+</body>
+</html>

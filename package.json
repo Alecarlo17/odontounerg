@@ -1,0 +1,19 @@
+{
+  "name": "odontounerg",
+  "version": "1.0.0",
+  "description": "OdontoUNERG - Plataforma Odontológica Universitaria UNERG",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["odontologia", "unerg", "plataforma", "universitaria"],
+  "author": "Proyecto de Grado II - UNERG",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

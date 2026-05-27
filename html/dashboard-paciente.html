@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Paciente - OdontoUNERG</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/auth.css">
+  <link rel="stylesheet" href="../css/dashboard.css">
+  <link rel="stylesheet" href="../css/chat.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-icon">🦷</div>
+        <div>
+          <span class="sidebar-logo-text">OdontoUNERG</span>
+          <span class="sidebar-logo-sub">Paciente</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Principal</span>
+          <a class="sidebar-link active" onclick="showSection('inicio')"><span class="sidebar-link-icon">🏠</span> Inicio</a>
+          <a class="sidebar-link" onclick="showSection('estudiantes')"><span class="sidebar-link-icon">👨‍⚕️</span> Estudiantes</a>
+          <a class="sidebar-link" onclick="showSection('solicitudes')"><span class="sidebar-link-icon">📨</span> Solicitudes <span class="sidebar-link-badge hidden" id="req-badge">0</span></a>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Gestión</span>
+          <a class="sidebar-link" onclick="showSection('citas')"><span class="sidebar-link-icon">📅</span> Citas</a>
+          <a class="sidebar-link" onclick="showSection('chat')"><span class="sidebar-link-icon">💬</span> Chat</a>
+          <a class="sidebar-link" onclick="showSection('historial')"><span class="sidebar-link-icon">📋</span> Historial</a>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Cuenta</span>
+          <a class="sidebar-link" onclick="showSection('perfil')"><span class="sidebar-link-icon">👤</span> Mi Perfil</a>
+          <a class="sidebar-link" onclick="showSection('notificaciones')"><span class="sidebar-link-icon">🔔</span> Notificaciones <span class="sidebar-link-badge hidden" id="notif-badge">0</span></a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="showSection('perfil')">
+          <div class="sidebar-user-avatar-placeholder" id="sidebar-avatar">?</div>
+          <div>
+            <div class="sidebar-user-name" id="sidebar-name">Cargando...</div>
+            <div class="sidebar-user-role">Paciente</div>
+          </div>
+        </div>
+        <a class="sidebar-link" onclick="logout()" style="margin-top:0.5rem; color: rgba(255,255,255,0.5);">
+          <span class="sidebar-link-icon">🚪</span> Cerrar Sesión
+        </a>
+      </div>
+    </aside>
+
+    <!-- CONTENIDO -->
+    <main class="main-content">
+      <header class="navbar">
+        <div class="navbar-left">
+          <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+          <div>
+            <h2 class="navbar-title" id="page-title">Inicio</h2>
+            <p class="navbar-subtitle" id="page-subtitle">Panel de control</p>
+          </div>
+        </div>
+        <div class="navbar-right">
+          <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro">🌙</button>
+          <button class="navbar-icon-btn" onclick="showSection('notificaciones')">🔔<span class="notification-dot hidden" id="notif-dot"></span></button>
+          <button class="navbar-icon-btn" onclick="showSection('chat')">💬</button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- INICIO -->
+        <section id="section-inicio">
+          <div class="stats-grid" id="stats-grid"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="inicio-grid">
+            <div class="card">
+              <div class="card-header"><span class="card-title">📨 Solicitudes Pendientes</span></div>
+              <div class="card-body" id="pending-requests-preview"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title">📅 Próximas Citas</span></div>
+              <div class="card-body" id="upcoming-appointments"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ESTUDIANTES -->
+        <section id="section-estudiantes" class="hidden">
+          <div class="filters-bar">
+            <div class="search-input-wrapper">
+              <span class="search-icon">🔍</span>
+              <input type="text" class="form-input" id="search-students" placeholder="Buscar estudiantes..." oninput="filterStudentsList()">
+            </div>
+          </div>
+          <div id="students-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;"></div>
+        </section>
+
+        <!-- SOLICITUDES -->
+        <section id="section-solicitudes" class="hidden">
+          <div class="tabs">
+            <div class="tab active" onclick="showReqTab('todas')">Todas</div>
+            <div class="tab" onclick="showReqTab('pending')">Pendientes</div>
+            <div class="tab" onclick="showReqTab('accepted')">Aceptadas</div>
+          </div>
+          <div id="requests-list"></div>
+        </section>
+
+        <!-- CITAS -->
+        <section id="section-citas" class="hidden">
+          <div id="appointments-list"></div>
+        </section>
+
+        <!-- CHAT -->
+        <section id="section-chat" class="hidden">
+          <div class="chat-layout" style="height:calc(100vh - 160px);">
+            <div class="chat-sidebar" id="chat-sidebar-panel">
+              <div class="chat-sidebar-header"><h3>Conversaciones</h3></div>
+              <div class="chat-list" id="chat-conversations-list"></div>
+            </div>
+            <div class="chat-main" id="chat-main-panel">
+              <div class="chat-empty">
+                <div class="chat-empty-icon">💬</div>
+                <p style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Seleccione una conversación</p>
+                <p style="font-size:0.9rem;">Elija un chat de la lista</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- HISTORIAL -->
+        <section id="section-historial" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Historial de Tratamientos</span></div>
+            <div class="card-body" id="treatments-list"></div>
+          </div>
+        </section>
+
+        <!-- PERFIL -->
+        <section id="section-perfil" class="hidden">
+          <div style="max-width:600px;">
+            <div class="card">
+              <div class="card-header"><span class="card-title">Mi Perfil</span></div>
+              <div class="card-body">
+                <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:2rem;">
+                  <div id="profile-avatar-container" style="cursor:pointer" onclick="document.getElementById('profile-photo-input').click()">
+                    <div class="avatar avatar-xl avatar-placeholder" id="profile-avatar">?</div>
+                  </div>
+                  <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+                  <div>
+                    <h3 id="profile-name-display">Cargando...</h3>
+                    <p style="color:var(--text-secondary)" id="profile-email-display">...</p>
+                    <span class="badge badge-success" style="margin-top:0.5rem">Paciente</span>
+                  </div>
+                </div>
+                <form id="profile-form" onsubmit="handleUpdateProfile(event)">
+                  <div class="form-group">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" class="form-input" id="prof-name" required>
+                  </div>
+                  <div style="display:flex;gap:0.75rem;">
+                    <div class="form-group" style="flex:1">
+                      <label class="form-label">Edad</label>
+                      <input type="number" class="form-input" id="prof-age">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                      <label class="form-label">Teléfono</label>
+                      <input type="tel" class="form-input" id="prof-phone">
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Dirección</label>
+                    <input type="text" class="form-input" id="prof-direccion">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Problema Odontológico</label>
+                    <select class="form-select" id="prof-problema">
+                      <option value="">Seleccione</option>
+                      <option value="Ortodoncia">Ortodoncia</option>
+                      <option value="Extracción">Extracción</option>
+                      <option value="Limpieza dental">Limpieza dental</option>
+                      <option value="Caries">Caries</option>
+                      <option value="Endodoncia">Endodoncia</option>
+                      <option value="Prótesis">Prótesis</option>
+                      <option value="Ortopedia">Ortopedia</option>
+                      <option value="Periodoncia">Periodoncia</option>
+                      <option value="Otro">Otro</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Antecedentes Médicos</label>
+                    <textarea class="form-textarea" id="prof-antecedentes" rows="3"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Disponibilidad</label>
+                    <select class="form-select" id="prof-disponibilidad">
+                      <option value="disponible">Disponible</option>
+                      <option value="ocupado">Ocupado</option>
+                      <option value="no_disponible">No disponible</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOTIFICACIONES -->
+        <section id="section-notificaciones" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Notificaciones</span>
+              <button class="btn btn-sm btn-outline" onclick="handleMarkAllRead()">Marcar todo como leído</button>
+            </div>
+            <div id="notifications-list"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="../js/auth.js"></script>
+  <script src="../js/notificaciones.js"></script>
+  <script src="../js/solicitudes.js"></script>
+  <script src="../js/chat.js"></script>
+  <script src="../js/citas.js"></script>
+  <script src="../js/perfil.js"></script>
+  <script src="../js/dashboard-paciente.js"></script>
+</body>
+</html>

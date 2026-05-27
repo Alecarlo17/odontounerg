@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recuperar Contraseña - OdontoUNERG</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+  <div class="auth-wrapper">
+    <div class="auth-brand">
+      <div class="auth-brand-logo">
+        <div class="logo-icon"><i data-lucide="heart-pulse" style="width:28px;height:28px;"></i></div>
+        OdontoUNERG
+      </div>
+      <h1 class="auth-brand-title">Recuperar Contraseña</h1>
+      <p class="auth-brand-subtitle">Ingrese su correo electrónico y le enviaremos un enlace para restablecer su contraseña.</p>
+    </div>
+    <div class="auth-form-panel">
+      <div class="auth-form-container">
+        <div class="auth-form-header">
+          <h2>Recuperar Contraseña</h2>
+          <p>Ingrese el correo asociado a su cuenta</p>
+        </div>
+        <form onsubmit="handleRecover(event)">
+          <div class="form-group">
+            <label class="form-label" for="recover-email">Correo Electrónico</label>
+            <div class="input-with-icon">
+              <span class="input-icon"><i data-lucide="mail" style="width:18px;height:18px;"></i></span>
+              <input type="email" id="recover-email" class="form-input" placeholder="correo@ejemplo.com" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block btn-lg">Enviar Enlace</button>
+        </form>
+        <div class="auth-footer">
+          <p><a href="/login" class="auth-link">← Volver al inicio de sesión</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+    async function handleRecover(event) {
+      event.preventDefault();
+      const email = document.getElementById('recover-email').value;
+      await recoverPassword(email);
+    }
+  </script>
+</body>
+</html>

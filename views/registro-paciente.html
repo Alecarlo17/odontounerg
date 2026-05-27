@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Registro de Paciente - Plataforma Odontológica UNERG">
+  <title>Registro de Paciente - OdontoUNERG</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body>
+
+  <div class="auth-wrapper">
+    <div class="auth-brand">
+      <div class="auth-brand-logo">
+        <div class="logo-icon"><i data-lucide="heart-pulse" style="width:28px;height:28px;"></i></div>
+        OdontoUNERG
+      </div>
+      <h1 class="auth-brand-title">Registro de Paciente</h1>
+      <p class="auth-brand-subtitle">
+        Regístrese como paciente y conecte con estudiantes de odontología que pueden ayudarle con su tratamiento dental.
+      </p>
+      <div class="auth-brand-features">
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="heart" style="width:18px;height:18px;"></i></div>
+          <span>Atención odontológica accesible</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="smartphone" style="width:18px;height:18px;"></i></div>
+          <span>Comunicación directa con estudiantes</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="clipboard-list" style="width:18px;height:18px;"></i></div>
+          <span>Seguimiento de tratamientos</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-form-panel" style="overflow-y: auto;">
+      <div class="auth-form-container" style="max-width: 420px;">
+        <div class="auth-form-header">
+          <h2>Crear Cuenta de Paciente</h2>
+          <p>Complete sus datos para registrarse</p>
+        </div>
+
+        <form id="register-patient-form" onsubmit="handleRegisterPatient(event)">
+          <div class="form-group">
+            <label class="form-label" for="reg-name">Nombre Completo *</label>
+            <input type="text" id="reg-name" class="form-input" placeholder="Ej: María García" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-cedula">Cédula *</label>
+            <input type="text" id="reg-cedula" class="form-input" placeholder="Ej: 12345678" maxlength="8" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-email">Correo Electrónico *</label>
+            <input type="email" id="reg-email" class="form-input" placeholder="correo@ejemplo.com" required>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem;">
+            <div class="form-group" style="flex:1">
+              <label class="form-label" for="reg-age">Edad</label>
+              <input type="number" id="reg-age" class="form-input" placeholder="Ej: 30" min="1" max="120">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label" for="reg-phone">Teléfono</label>
+              <input type="tel" id="reg-phone" class="form-input" placeholder="0412-1234567">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-direccion">Dirección</label>
+            <input type="text" id="reg-direccion" class="form-input" placeholder="Ciudad, Estado">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-problema">Problema Odontológico Principal *</label>
+            <select id="reg-problema" class="form-select" required>
+              <option value="">Seleccione un problema</option>
+              <option value="Ortodoncia">Ortodoncia</option>
+              <option value="Extracción">Extracción</option>
+              <option value="Limpieza dental">Limpieza dental</option>
+              <option value="Caries">Caries</option>
+              <option value="Endodoncia">Endodoncia</option>
+              <option value="Prótesis">Prótesis</option>
+              <option value="Ortopedia">Ortopedia</option>
+              <option value="Periodoncia">Periodoncia</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-antecedentes">Antecedentes Médicos</label>
+            <textarea id="reg-antecedentes" class="form-textarea" placeholder="Describa si tiene alguna condición médica, alergias, medicamentos, etc." rows="3"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Foto de Perfil (Opcional)</label>
+            <div class="photo-upload" onclick="document.getElementById('reg-photo').click()">
+              <img id="photo-preview" class="photo-preview" style="display:none" alt="Vista previa">
+              <span class="photo-upload-icon" id="photo-icon"><i data-lucide="camera" style="width:28px;height:28px;"></i></span>
+              <span class="photo-upload-text">Haga clic para seleccionar una foto</span>
+            </div>
+            <input type="file" id="reg-photo" accept="image/*" style="display:none" onchange="previewPhoto(this)">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-password">Contraseña *</label>
+            <div class="input-with-icon">
+              <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
+              <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required>
+              <button type="button" class="password-toggle" onclick="togglePassword('reg-password', this)"><i data-lucide="eye" style="width:18px;height:18px;"></i></button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="reg-confirm-password">Confirmar Contraseña *</label>
+            <div class="input-with-icon">
+              <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
+              <input type="password" id="reg-confirm-password" class="form-input" placeholder="Repita la contraseña" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg">
+            Crear Cuenta
+          </button>
+        </form>
+
+        <div class="auth-footer">
+          <p>¿Ya tiene cuenta? <a href="/login" class="auth-link">Iniciar Sesión</a></p>
+          <p style="margin-top: 0.5rem;">¿Es estudiante? <a href="/registro-estudiante" class="auth-link">Registrarse como estudiante</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+
+    function previewPhoto(input) {
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          document.getElementById('photo-preview').src = e.target.result;
+          document.getElementById('photo-preview').style.display = 'block';
+          document.getElementById('photo-icon').style.display = 'none';
+        };
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const icon = btn.querySelector('[data-lucide]');
+      if (input.type === 'password') {
+        input.type = 'text';
+        if (icon) { icon.setAttribute('data-lucide', 'eye-off'); lucide.createIcons(); }
+      } else {
+        input.type = 'password';
+        if (icon) { icon.setAttribute('data-lucide', 'eye'); lucide.createIcons(); }
+      }
+    }
+
+    async function handleRegisterPatient(event) {
+      event.preventDefault();
+      const formData = {
+        fullName: document.getElementById('reg-name').value.trim(),
+        cedula: document.getElementById('reg-cedula').value.trim(),
+        email: document.getElementById('reg-email').value.trim(),
+        age: document.getElementById('reg-age').value,
+        phone: document.getElementById('reg-phone').value.trim(),
+        direccion: document.getElementById('reg-direccion').value.trim(),
+        consultationReason: document.getElementById('reg-problema').value,
+        medicalHistory: document.getElementById('reg-antecedentes').value.trim(),
+        password: document.getElementById('reg-password').value,
+        confirmPassword: document.getElementById('reg-confirm-password').value
+      };
+      await registerPatient(formData);
+    }
+  </script>
+</body>
+</html>

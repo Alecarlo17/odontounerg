@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrativo - OdontoUNERG</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-icon"><i data-lucide="heart-pulse"></i></div>
+        <div>
+          <span class="sidebar-logo-text">OdontoUNERG</span>
+          <span class="sidebar-logo-sub">Administrador</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Principal</span>
+          <a class="sidebar-link active" onclick="showSection('inicio')"><i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio</a>
+          <a class="sidebar-link" onclick="showSection('usuarios')"><i data-lucide="users" class="sidebar-link-icon"></i> Usuarios</a>
+          <a class="sidebar-link" onclick="showSection('estudiantes')"><i data-lucide="graduation-cap" class="sidebar-link-icon"></i> Estudiantes</a>
+          <a class="sidebar-link" onclick="showSection('pacientes')"><i data-lucide="heart" class="sidebar-link-icon"></i> Pacientes</a>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Supervisión</span>
+          <a class="sidebar-link" onclick="showSection('solicitudes')"><i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes</a>
+          <a class="sidebar-link" onclick="showSection('citas')"><i data-lucide="calendar" class="sidebar-link-icon"></i> Citas</a>
+          <a class="sidebar-link" onclick="showSection('reportes')"><i data-lucide="flag" class="sidebar-link-icon"></i> Reportes</a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <a class="sidebar-link" onclick="logout()" style="color: rgba(255,255,255,0.4);">
+          <i data-lucide="log-out" class="sidebar-link-icon"></i> Cerrar Sesión
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="navbar">
+        <div class="navbar-left">
+          <button class="menu-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+          <div>
+            <h2 class="navbar-title" id="page-title">Panel Administrativo</h2>
+            <p class="navbar-subtitle" id="page-subtitle">Supervisión general</p>
+          </div>
+        </div>
+        <div class="navbar-right">
+          <button class="btn-export" onclick="handleExportUsers()"><i data-lucide="download" style="width:16px;height:16px;"></i> Exportar CSV</button>
+          <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro"><i data-lucide="moon" id="dark-mode-icon"></i></button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- INICIO -->
+        <section id="section-inicio">
+          <div class="stats-grid" id="stats-grid"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem;">
+            <div class="card">
+              <div class="card-header"><span class="card-title"><i data-lucide="pie-chart"></i> Distribución de Usuarios</span></div>
+              <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
+                <canvas id="chart-users" width="300" height="300"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title"><i data-lucide="bar-chart-3"></i> Solicitudes por Estado</span></div>
+              <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
+                <canvas id="chart-requests" width="300" height="300"></canvas>
+              </div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;">
+            <div class="card">
+              <div class="card-header"><span class="card-title"><i data-lucide="calendar"></i> Citas por Estado</span></div>
+              <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
+                <canvas id="chart-appointments" width="300" height="300"></canvas>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title"><i data-lucide="activity"></i> Tratamientos Solicitados</span></div>
+              <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
+                <canvas id="chart-treatments" width="300" height="300"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- USUARIOS -->
+        <section id="section-usuarios" class="hidden">
+          <div class="filters-bar">
+            <div class="search-input-wrapper">
+              <span class="search-icon"><i data-lucide="search"></i></span>
+              <input type="text" class="form-input" id="search-users" placeholder="Buscar usuarios..." oninput="filterUsers()">
+            </div>
+            <select class="filter-select" id="filter-role" onchange="loadAllUsers()">
+              <option value="all">Todos los roles</option>
+              <option value="student">Estudiantes</option>
+              <option value="patient">Pacientes</option>
+              <option value="admin">Administradores</option>
+            </select>
+          </div>
+          <div class="card">
+            <div class="card-body table-wrapper" id="users-table"></div>
+          </div>
+        </section>
+
+        <!-- ESTUDIANTES -->
+        <section id="section-estudiantes" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="graduation-cap"></i> Estudiantes Registrados</span></div>
+            <div class="card-body table-wrapper" id="students-table"></div>
+          </div>
+        </section>
+
+        <!-- PACIENTES -->
+        <section id="section-pacientes" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="heart"></i> Pacientes Registrados</span></div>
+            <div class="card-body table-wrapper" id="patients-table"></div>
+          </div>
+        </section>
+
+        <!-- SOLICITUDES -->
+        <section id="section-solicitudes" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="mail"></i> Todas las Solicitudes</span></div>
+            <div class="card-body table-wrapper" id="all-requests-table"></div>
+          </div>
+        </section>
+
+        <!-- CITAS -->
+        <section id="section-citas" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="calendar"></i> Todas las Citas</span></div>
+            <div class="card-body table-wrapper" id="all-appointments-table"></div>
+          </div>
+        </section>
+
+        <!-- REPORTES DE USUARIOS -->
+        <section id="section-reportes" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="flag"></i> Reportes de Usuarios</span></div>
+            <div class="card-body table-wrapper" id="reports-table">
+              <div class="empty-state"><div class="empty-state-icon"><i data-lucide="flag"></i></div><p class="empty-state-title">Sin reportes</p><p class="empty-state-text">No hay reportes de usuarios</p></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/notificaciones.js"></script>
+  <script src="/js/dashboard-admin.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+  </script>
+</body>
+</html>

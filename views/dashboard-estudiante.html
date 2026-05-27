@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Estudiante - OdontoUNERG</title>
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/auth.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/chat.css">
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo-icon"><i data-lucide="heart-pulse"></i></div>
+        <div>
+          <span class="sidebar-logo-text">OdontoUNERG</span>
+          <span class="sidebar-logo-sub">Estudiante</span>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Principal</span>
+          <a class="sidebar-link active" onclick="showSection('inicio')">
+            <i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio
+          </a>
+          <a class="sidebar-link" onclick="showSection('pacientes')">
+            <i data-lucide="users" class="sidebar-link-icon"></i> Pacientes
+          </a>
+          <a class="sidebar-link" onclick="showSection('solicitudes')">
+            <i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes
+            <span class="sidebar-link-badge hidden" id="req-badge">0</span>
+          </a>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Gestión</span>
+          <a class="sidebar-link" onclick="showSection('citas')">
+            <i data-lucide="calendar" class="sidebar-link-icon"></i> Citas
+          </a>
+          <a class="sidebar-link" onclick="showSection('chat')">
+            <i data-lucide="message-circle" class="sidebar-link-icon"></i> Chat
+            <span class="sidebar-link-badge hidden" id="chat-badge">0</span>
+          </a>
+          <a class="sidebar-link" onclick="showSection('historial')">
+            <i data-lucide="clipboard-list" class="sidebar-link-icon"></i> Historial
+          </a>
+        </div>
+        <div class="sidebar-section">
+          <span class="sidebar-section-title">Cuenta</span>
+          <a class="sidebar-link" onclick="showSection('perfil')">
+            <i data-lucide="user" class="sidebar-link-icon"></i> Mi Perfil
+          </a>
+          <a class="sidebar-link" onclick="showSection('notificaciones')">
+            <i data-lucide="bell" class="sidebar-link-icon"></i> Notificaciones
+            <span class="sidebar-link-badge hidden" id="notif-badge">0</span>
+          </a>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user" onclick="showSection('perfil')">
+          <div class="sidebar-user-avatar-placeholder" id="sidebar-avatar">?</div>
+          <div>
+            <div class="sidebar-user-name" id="sidebar-name">Cargando...</div>
+            <div class="sidebar-user-role">Estudiante</div>
+          </div>
+        </div>
+        <a class="sidebar-link" onclick="logout()" style="margin-top:0.5rem; color: rgba(255,255,255,0.4);">
+          <i data-lucide="log-out" class="sidebar-link-icon"></i> Cerrar Sesión
+        </a>
+      </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="main-content">
+      <!-- Navbar -->
+      <header class="navbar">
+        <div class="navbar-left">
+          <button class="menu-toggle" onclick="toggleSidebar()"><i data-lucide="menu"></i></button>
+          <div>
+            <h2 class="navbar-title" id="page-title">Inicio</h2>
+            <p class="navbar-subtitle" id="page-subtitle">Panel de control</p>
+          </div>
+        </div>
+        <div class="navbar-right">
+          <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro"><i data-lucide="moon" id="dark-mode-icon"></i></button>
+          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones">
+            <i data-lucide="bell"></i>
+            <span class="notification-dot hidden" id="notif-dot"></span>
+          </button>
+          <button class="navbar-icon-btn" onclick="showSection('chat')" title="Chat"><i data-lucide="message-circle"></i></button>
+        </div>
+      </header>
+
+      <!-- Secciones -->
+      <div class="page-content">
+
+        <!-- SECCIÓN INICIO -->
+        <section id="section-inicio">
+          <div class="stats-grid" id="stats-grid"></div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;" id="inicio-grid">
+            <!-- Próximas citas -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="calendar"></i> Próximas Citas</span>
+                <button class="btn btn-sm btn-outline" onclick="showSection('citas')">Ver todas</button>
+              </div>
+              <div class="card-body" id="upcoming-appointments">
+                <div class="empty-state"><div class="empty-state-icon"><i data-lucide="calendar"></i></div><p class="empty-state-text">Sin citas próximas</p></div>
+              </div>
+            </div>
+            <!-- Solicitudes recientes -->
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="mail"></i> Solicitudes Recientes</span>
+                <button class="btn btn-sm btn-outline" onclick="showSection('solicitudes')">Ver todas</button>
+              </div>
+              <div class="card-body" id="recent-requests">
+                <div class="empty-state"><div class="empty-state-icon"><i data-lucide="mail"></i></div><p class="empty-state-text">Sin solicitudes</p></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECCIÓN PACIENTES -->
+        <section id="section-pacientes" class="hidden">
+          <div class="filters-bar">
+            <div class="search-input-wrapper">
+              <span class="search-icon"><i data-lucide="search"></i></span>
+              <input type="text" class="form-input" id="search-patients" placeholder="Buscar pacientes..." oninput="filterPatients()">
+            </div>
+            <select class="filter-select" id="filter-treatment" onchange="filterPatients()">
+              <option value="all">Todos los tratamientos</option>
+              <option value="Ortodoncia">Ortodoncia</option>
+              <option value="Extracción">Extracción</option>
+              <option value="Limpieza dental">Limpieza dental</option>
+              <option value="Caries">Caries</option>
+              <option value="Endodoncia">Endodoncia</option>
+              <option value="Prótesis">Prótesis</option>
+              <option value="Ortopedia">Ortopedia</option>
+              <option value="Periodoncia">Periodoncia</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div id="patients-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:1rem;"></div>
+        </section>
+
+        <!-- SECCIÓN SOLICITUDES -->
+        <section id="section-solicitudes" class="hidden">
+          <div class="tabs">
+            <div class="tab active" onclick="showRequestTab('todas')">Todas</div>
+            <div class="tab" onclick="showRequestTab('pending')">Pendientes</div>
+            <div class="tab" onclick="showRequestTab('accepted')">Aceptadas</div>
+            <div class="tab" onclick="showRequestTab('rejected')">Rechazadas</div>
+          </div>
+          <div id="requests-list"></div>
+        </section>
+
+        <!-- SECCIÓN CITAS -->
+        <section id="section-citas" class="hidden">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+            <div class="tabs" style="margin-bottom:0;">
+              <div class="tab active" onclick="showAppointmentTab('todas')">Todas</div>
+              <div class="tab" onclick="showAppointmentTab('proposed')">Propuestas</div>
+              <div class="tab" onclick="showAppointmentTab('confirmed')">Confirmadas</div>
+              <div class="tab" onclick="showAppointmentTab('completed')">Finalizadas</div>
+            </div>
+          </div>
+          <div id="appointments-list"></div>
+        </section>
+
+        <!-- SECCIÓN CHAT -->
+        <section id="section-chat" class="hidden">
+          <div class="chat-layout" style="height: calc(100vh - 160px);">
+            <div class="chat-sidebar" id="chat-sidebar-panel">
+              <div class="chat-sidebar-header">
+                <h3>Conversaciones</h3>
+              </div>
+              <div class="chat-list" id="chat-conversations-list"></div>
+            </div>
+            <div class="chat-main" id="chat-main-panel">
+              <div class="chat-empty">
+                <div class="chat-empty-icon"><i data-lucide="message-circle" style="width:48px;height:48px;"></i></div>
+                <p style="font-size:1.1rem; font-weight:600; margin-bottom:0.5rem;">Seleccione una conversación</p>
+                <p style="font-size:0.9rem;">Elija un chat de la lista para comenzar</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECCIÓN HISTORIAL -->
+        <section id="section-historial" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i data-lucide="clipboard-list"></i> Historial de Tratamientos</span>
+            </div>
+            <div class="card-body" id="treatments-list">
+              <div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p><p class="empty-state-text">Aún no hay tratamientos registrados</p></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECCIÓN PERFIL -->
+        <section id="section-perfil" class="hidden">
+          <div style="max-width:600px;">
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="user"></i> Mi Perfil</span>
+              </div>
+              <div class="card-body">
+                <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:2rem;">
+                  <div id="profile-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('profile-photo-input').click()">
+                    <div class="avatar avatar-xl avatar-placeholder" id="profile-avatar">?</div>
+                    <div style="position:absolute;bottom:0;right:0;background:var(--primary);color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><i data-lucide="camera" style="width:12px;height:12px;"></i></div>
+                  </div>
+                  <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
+                  <div>
+                    <h3 id="profile-name-display" style="font-size:1.25rem;font-weight:700;">Cargando...</h3>
+                    <p style="color:var(--text-secondary);" id="profile-email-display">...</p>
+                    <span class="badge badge-primary" style="margin-top:0.5rem;">Estudiante</span>
+                  </div>
+                </div>
+                <form id="profile-form" onsubmit="handleUpdateProfile(event)">
+                  <div class="form-group">
+                    <label class="form-label">Nombre Completo</label>
+                    <input type="text" class="form-input" id="prof-name" required>
+                  </div>
+                  <div style="display:flex;gap:0.75rem;">
+                    <div class="form-group" style="flex:1">
+                      <label class="form-label">Sección</label>
+                      <input type="text" class="form-input" id="prof-section">
+                    </div>
+                    <div class="form-group" style="flex:1">
+                      <label class="form-label">Año Académico</label>
+                      <select class="form-select" id="prof-year">
+                        <option value="">Seleccione</option>
+                        <option value="3er año">3er Año</option>
+                        <option value="4to año">4to Año</option>
+                        <option value="5to año">5to Año</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="tel" class="form-input" id="prof-phone">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Disponibilidad</label>
+                    <select class="form-select" id="prof-disponibilidad">
+                      <option value="disponible">Disponible</option>
+                      <option value="ocupado">Ocupado</option>
+                      <option value="no_disponible">No disponible</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- SECCIÓN NOTIFICACIONES -->
+        <section id="section-notificaciones" class="hidden">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title"><i data-lucide="bell"></i> Notificaciones</span>
+              <button class="btn btn-sm btn-outline" onclick="handleMarkAllRead()">Marcar todo como leído</button>
+            </div>
+            <div id="notifications-list"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Nueva Cita -->
+  <div class="modal-overlay" id="modal-nueva-cita">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Nueva Cita</h3>
+        <button class="modal-close" onclick="closeModal('modal-nueva-cita')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleCreateAppointment(event)">
+        <div class="form-group">
+          <label class="form-label">Paciente</label>
+          <select class="form-select" id="cita-request" required></select>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Fecha</label>
+            <input type="date" class="form-input" id="cita-fecha" required>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label">Hora</label>
+            <input type="time" class="form-input" id="cita-hora" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Duración (minutos)</label>
+          <input type="number" class="form-input" id="cita-duracion" value="60" min="15">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lugar</label>
+          <input type="text" class="form-input" id="cita-lugar" placeholder="Ej: Clínica UNERG">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Notas</label>
+          <textarea class="form-textarea" id="cita-notas" placeholder="Observaciones adicionales"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Crear Cita</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Solicitud -->
+  <div class="modal-overlay" id="modal-solicitud">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Enviar Solicitud</h3>
+        <button class="modal-close" onclick="closeModal('modal-solicitud')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <div id="modal-solicitud-paciente"></div>
+      <form onsubmit="handleSendRequest(event)">
+        <input type="hidden" id="solicitud-patient-id">
+        <div class="form-group">
+          <label class="form-label">Mensaje (opcional)</label>
+          <textarea class="form-textarea" id="solicitud-message" placeholder="Escriba un mensaje para el paciente..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Enviar Solicitud</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Reportar Usuario -->
+  <div class="modal-overlay" id="modal-reportar">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Reportar Usuario</h3>
+        <button class="modal-close" onclick="closeModal('modal-reportar')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleReportUser(event)">
+        <input type="hidden" id="report-user-id">
+        <input type="hidden" id="report-conversation-id">
+        <div class="form-group">
+          <label class="form-label">Motivo del reporte</label>
+          <select class="form-select" id="report-motivo" required>
+            <option value="">Seleccione un motivo</option>
+            <option value="comportamiento_inapropiado">Comportamiento inapropiado</option>
+            <option value="spam">Spam</option>
+            <option value="lenguaje_ofensivo">Lenguaje ofensivo</option>
+            <option value="otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observación (opcional)</label>
+          <textarea class="form-textarea" id="report-observacion" placeholder="Describa la situación..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger btn-block">Enviar Reporte</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/supabase-config.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/notificaciones.js"></script>
+  <script src="/js/solicitudes.js"></script>
+  <script src="/js/chat.js"></script>
+  <script src="/js/citas.js"></script>
+  <script src="/js/perfil.js"></script>
+  <script src="/js/reportes.js"></script>
+  <script src="/js/dashboard-estudiante.js"></script>
+  <script>
+    // Inicializar iconos Lucide después de cargar el DOM
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+    });
+  </script>
+</body>
+</html>

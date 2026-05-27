@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Plataforma Odontológica UNERG - Conectando estudiantes de odontología con pacientes">
+  <title>OdontoUNERG - Plataforma Odontológica</title>
+  <link rel="stylesheet" href="../css/global.css">
+  <link rel="stylesheet" href="../css/auth.css">
+</head>
+<body>
+
+  <div class="auth-wrapper">
+    <!-- Panel izquierdo: Branding -->
+    <div class="auth-brand">
+      <div class="auth-brand-logo">
+        <div class="logo-icon">🦷</div>
+        OdontoUNERG
+      </div>
+      <h1 class="auth-brand-title">Plataforma Odontológica Universitaria</h1>
+      <p class="auth-brand-subtitle">
+        Conectamos estudiantes de odontología con pacientes que necesitan atención dental. 
+        Una solución digital para la Universidad Nacional Experimental Rómulo Gallegos.
+      </p>
+      <div class="auth-brand-features">
+        <div class="auth-feature">
+          <div class="auth-feature-icon">🔍</div>
+          <span>Búsqueda de pacientes por tratamiento</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon">📅</div>
+          <span>Gestión de citas odontológicas</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon">💬</div>
+          <span>Chat en tiempo real</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon">📋</div>
+          <span>Historial de tratamientos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel derecho: Formulario de Login -->
+    <div class="auth-form-panel">
+      <div class="auth-form-container">
+        <div class="auth-form-header">
+          <h2>Iniciar Sesión</h2>
+          <p>Ingrese sus credenciales para acceder</p>
+        </div>
+
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="form-group">
+            <label class="form-label" for="login-email">Correo Electrónico</label>
+            <div class="input-with-icon">
+              <span class="input-icon">📧</span>
+              <input type="email" id="login-email" class="form-input" 
+                placeholder="correo@ejemplo.com" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="login-password">Contraseña</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🔒</span>
+              <input type="password" id="login-password" class="form-input" 
+                placeholder="Ingrese su contraseña" required>
+              <button type="button" class="password-toggle" onclick="togglePassword('login-password', this)">👁</button>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <label class="form-checkbox-label">
+              <input type="checkbox" class="form-checkbox" id="remember-me">
+              Recordarme
+            </label>
+            <a href="recuperar-clave.html" class="auth-link">¿Olvidó su contraseña?</a>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-btn">
+            Iniciar Sesión
+          </button>
+        </form>
+
+        <div class="auth-divider">
+          <span>¿No tiene cuenta?</span>
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <a href="registro-estudiante.html" class="btn btn-outline" style="flex:1; text-align:center;">
+            Soy Estudiante
+          </a>
+          <a href="registro-paciente.html" class="btn btn-outline" style="flex:1; text-align:center;">
+            Soy Paciente
+          </a>
+        </div>
+
+        <div class="auth-footer">
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 1.5rem;">
+            Universidad Nacional Experimental Rómulo Gallegos<br>
+            Facultad de Odontología
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../js/supabase-config.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="../js/auth.js"></script>
+  <script>
+    // Verificar si ya hay sesión activa
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuthAndRedirect();
+    });
+
+    // Manejar envío del formulario de login
+    async function handleLogin(event) {
+      event.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      await loginUser(email, password);
+    }
+
+    // Toggle de visibilidad de contraseña
+    function togglePassword(inputId, btn) {
+      const input = document.getElementById(inputId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🔒';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁';
+      }
+    }
+  </script>
+
+</body>
+</html>
