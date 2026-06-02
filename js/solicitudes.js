@@ -69,7 +69,10 @@ async function acceptRequest(requestId) {
     }
     
     // Crear conversación
-    await client.from('conversations').upsert({ request_id: requestId }).catch(()=>{});
+    const { data: existing } = await client.from('conversations').select('id').eq('request_id', requestId);
+    if (!existing || existing.length === 0) {
+        await client.from('conversations').insert({ request_id: requestId });
+    }
   }
 
   try {

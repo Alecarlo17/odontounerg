@@ -11,16 +11,30 @@ let chatPollingInterval = null;
 async function getConversations(userId) {
   if (navigator.onLine) {
     const client = window.supabaseClient || supabase;
-    const { data: requests } = await client.from('requests').select('id, student:student_id(id, full_name, avatar_url), patient:patient_id(id, full_name, avatar_url)').or(`student_id.eq.${userId},patient_id.eq.${userId}`).in('status', ['accepted', 'active']);
+    const { data: convs } = await client.from('conversations')
+      .select('id, request:request_id(id, status, student:student_id(id, full_name, avatar_url), patient:patient_id(id, full_name, avatar_url))');
     
-    if (!requests || requests.length === 0) return [];
+    if (!convs || convs.length === 0) return [];
     
-    return requests.map(r => {
-      const isStudent = r.student.id === userId;
-      const otherUser = isStudent ? r.patient : r.student;
+    const myConvs = convs.filter(c => {
+       const req = Array.isArray(c.request) ? c.request[0] : c.request;
+       if (!req) return false;
+       if (req.status !== 'accepted' && req.status !== 'active') return false;
+       const stu = Array.isArray(req.student) ? req.student[0] : req.student;
+       const pat = Array.isArray(req.patient) ? req.patient[0] : req.patient;
+       if (!stu || !pat) return false;
+       return stu.id === userId || pat.id === userId;
+    });
+
+    return myConvs.map(c => {
+      const req = Array.isArray(c.request) ? c.request[0] : c.request;
+      const stu = Array.isArray(req.student) ? req.student[0] : req.student;
+      const pat = Array.isArray(req.patient) ? req.patient[0] : req.patient;
+      const isStudent = stu.id === userId;
+      const otherUser = isStudent ? pat : stu;
       return {
-        conversationId: r.id,
-        requestId: r.id,
+        conversationId: c.id,
+        requestId: req.id,
         otherUser: {
           id: otherUser.id,
           full_name: otherUser.full_name,
@@ -65,11 +79,8 @@ async function getConversations(userId) {
 async function getMessages(conversationId) {
   if (navigator.onLine) {
     const client = window.supabaseClient || supabase;
-    const { data } = await client.from('chats').select('*').eq('receiver_id', conversationId).order('created_at', { ascending: true });
-    // Note: We used receiver_id to hold conversationId previously when adapting, let's also query correctly.
-    // Actually our /api/chat uses receiver_id as the conversation id temporarily in SQLite
-    const { data: directData } = await client.from('chats').select('*').or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`).order('created_at', { ascending: true });
-    return directData || [];
+    const { data } = await client.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+    return data || [];
   }
   try {
     const res = await fetch(`/api/chat/messages/${conversationId}`);
@@ -88,12 +99,12 @@ async function sendMessage(conversationId, senderId, content) {
 
   if (navigator.onLine) {
     const client = window.supabaseClient || supabase;
-    const { error } = await client.from('chats').insert({
-      id: Date.now().toString(),
+    const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
+    const { error } = await client.from('messages').insert({
+      id: msgId,
       sender_id: senderId,
-      receiver_id: conversationId,
-      message: content,
-      created_at: new Date().toISOString()
+      conversation_id: conversationId,
+      content: content
     });
     if (error) return false;
   }
@@ -119,7 +130,7 @@ async function sendMessage(conversationId, senderId, content) {
 async function markMessagesAsRead(conversationId, userId) {
   if (navigator.onLine) {
     const client = window.supabaseClient || supabase;
-    await client.from('chats').update({ read: 1 }).eq('receiver_id', conversationId).neq('sender_id', userId).catch(()=>{});
+    await client.from('messages').update({ read: true }).eq('conversation_id', conversationId).neq('sender_id', userId).catch(()=>{});
   }
   try {
     await fetch(`/api/chat/messages/${conversationId}/read`, { method: 'PUT' });
