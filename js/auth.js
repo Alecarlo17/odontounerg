@@ -342,6 +342,10 @@ async function logout() {
     if (window._sessionWatcherInterval) {
       clearInterval(window._sessionWatcherInterval);
     }
+    
+    // Limpiar sesión offline
+    localStorage.removeItem('offline_session');
+
     await client.auth.signOut();
     showLoading(false);
     navigateTo('/login');
