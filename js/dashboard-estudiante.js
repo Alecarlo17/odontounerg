@@ -568,7 +568,9 @@ async function openChat(conversationId, otherUserId, otherName) {
 
   // Actualizar lista activa
   document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
-  event?.target?.closest('.chat-item')?.classList.add('active');
+  if (typeof event !== 'undefined' && event?.target) {
+    event.target.closest('.chat-item')?.classList.add('active');
+  }
 }
 
 /**

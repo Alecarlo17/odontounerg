@@ -129,8 +129,10 @@ async function sendMessage(conversationId, senderId, content) {
  */
 async function markMessagesAsRead(conversationId, userId) {
   if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    await client.from('messages').update({ read: true }).eq('conversation_id', conversationId).neq('sender_id', userId).catch(()=>{});
+    try {
+      const client = window.supabaseClient || supabase;
+      await client.from('messages').update({ read: true }).eq('conversation_id', conversationId).neq('sender_id', userId);
+    } catch(e) {}
   }
   try {
     await fetch(`/api/chat/messages/${conversationId}/read`, { method: 'PUT' });

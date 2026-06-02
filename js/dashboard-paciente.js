@@ -245,7 +245,9 @@ async function loadPatientRequestsList(status = null) {
 
 function showReqTab(status) {
   document.querySelectorAll('#section-solicitudes .tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  if (typeof event !== 'undefined' && event?.target) {
+    event.target.classList.add('active');
+  }
   loadPatientRequestsList(status === 'todas' ? null : status);
 }
 
