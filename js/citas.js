@@ -6,6 +6,23 @@
  * Crear nueva cita
  */
 async function createAppointment(citaData) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('appointments').insert({
+      request_id: citaData.requestId,
+      proposed_by: citaData.proposedBy,
+      date: citaData.date,
+      duration_minutes: citaData.duration || 60,
+      location: citaData.location || null,
+      notes: citaData.notes || null,
+      status: 'proposed'
+    });
+    if (error) {
+      showToast('Error al crear cita en línea', 'error');
+      return false;
+    }
+  }
+
   try {
     const res = await fetch('/api/appointments', {
       method: 'POST',
@@ -20,15 +37,18 @@ async function createAppointment(citaData) {
       })
     });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al crear cita', 'error');
       return false;
     }
     showToast('Cita creada exitosamente', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 
@@ -66,18 +86,26 @@ async function getAppointments(userId, status = null) {
  * Confirmar cita
  */
 async function confirmAppointment(appointmentId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('appointments').update({ status: 'confirmed' }).eq('id', appointmentId);
+    if (error) return false;
+  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/confirm`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al confirmar cita', 'error');
       return false;
     }
     showToast('Cita confirmada', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 
@@ -85,18 +113,26 @@ async function confirmAppointment(appointmentId) {
  * Cancelar cita
  */
 async function cancelAppointment(appointmentId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('appointments').update({ status: 'cancelled' }).eq('id', appointmentId);
+    if (error) return false;
+  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/cancel`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al cancelar cita', 'error');
       return false;
     }
     showToast('Cita cancelada', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 
@@ -104,18 +140,26 @@ async function cancelAppointment(appointmentId) {
  * Completar cita
  */
 async function completeAppointment(appointmentId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
+    if (error) return false;
+  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/complete`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al finalizar cita', 'error');
       return false;
     }
     showToast('Cita finalizada', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 

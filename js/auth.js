@@ -81,14 +81,27 @@ async function loginUser(email, password) {
 
   // INTENTAR MODO LOCAL SIEMPRE PRIMERO PARA EVITAR LENTITUD
   try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await res.json();
-    
-    if (data.success) {
+   async function updateProfile(userId, data) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    await client.from('profiles').update({
+      full_name: data.fullName,
+      phone: data.phone,
+      disponibilidad: data.disponibilidad,
+      updated_at: new Date().toISOString()
+    }).eq('id', userId);
+  }
+  await fetch('/api/auth/sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      id: userId,
+      full_name: data.fullName,
+      phone: data.phone,
+      disponibilidad: data.disponibilidad
+    })
+  });
+}  if (data.success) {
       showLoading(false);
       showToast('Inicio de sesión exitoso', 'success');
       localStorage.setItem('offline_session', JSON.stringify({ user: data.user }));
@@ -196,25 +209,64 @@ async function registerStudent(formData) {
 
   showLoading(true);
   try {
+    let finalId = null;
+    let formDataObj = {
+      fullName: formData.fullName,
+      email: formData.email.trim(),
+      password: formData.password,
+      role: 'student',
+      cedula: formData.cedula,
+      academicYear: formData.academicYear || null,
+      section: formData.section || null,
+      treatments: formData.treatments || []
+    };
+
+    if (navigator.onLine) {
+      const client = window.supabaseClient || supabase;
+      const { data, error } = await client.auth.signUp({
+        email: formDataObj.email,
+        password: formDataObj.password,
+        options: { data: { full_name: formDataObj.fullName, role: formDataObj.role } }
+      });
+
+      if (error) {
+        showLoading(false);
+        showToast('Error en registro online: ' + error.message, 'error');
+        return;
+      }
+      
+      finalId = data.user.id;
+      formDataObj.id = finalId;
+
+      await client.from('profiles').upsert({
+        id: finalId,
+        full_name: formDataObj.fullName,
+        email: formDataObj.email,
+        role: formDataObj.role,
+        disponibilidad: 'disponible',
+        updated_at: new Date().toISOString()
+      });
+
+      await client.from('students').upsert({
+        id: finalId,
+        user_id: finalId,
+        student_id_card: formDataObj.cedula,
+        academic_year: formDataObj.academicYear,
+        section: formDataObj.section,
+        treatments_needed: JSON.stringify(formDataObj.treatments)
+      });
+    }
+
     const res = await fetch('/api/auth/register-offline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fullName: formData.fullName,
-        email: formData.email.trim(),
-        password: formData.password,
-        role: 'student',
-        cedula: formData.cedula,
-        academicYear: formData.academicYear || null,
-        section: formData.section || null,
-        treatments: formData.treatments || []
-      })
+      body: JSON.stringify(formDataObj)
     });
     
     const json = await res.json();
     showLoading(false);
     
-    if (!json.success) {
+    if (!json.success && !finalId) {
       showToast('Error en registro: ' + json.message, 'error');
       return;
     }
@@ -262,28 +314,73 @@ async function registerPatient(formData) {
 
   showLoading(true);
   try {
+    let finalId = null;
+    let formDataObj = {
+      fullName: formData.fullName,
+      email: formData.email.trim(),
+      password: formData.password,
+      role: 'patient',
+      cedula: formData.cedula,
+      age: formData.age || null,
+      phone: formData.phone || null,
+      direccion: formData.direccion || null,
+      medical_history: formData.medicalHistory || null,
+      consultation_reason: formData.consultationReason || null,
+      gender: formData.gender || null
+    };
+
+    if (navigator.onLine) {
+      const client = window.supabaseClient || supabase;
+      const { data, error } = await client.auth.signUp({
+        email: formDataObj.email,
+        password: formDataObj.password,
+        options: { data: { full_name: formDataObj.fullName, role: formDataObj.role } }
+      });
+
+      if (error) {
+        showLoading(false);
+        showToast('Error en registro online: ' + error.message, 'error');
+        return;
+      }
+      
+      finalId = data.user.id;
+      formDataObj.id = finalId;
+
+      await client.from('profiles').upsert({
+        id: finalId,
+        full_name: formDataObj.fullName,
+        email: formDataObj.email,
+        role: formDataObj.role,
+        disponibilidad: 'disponible',
+        phone: formDataObj.phone,
+        updated_at: new Date().toISOString()
+      });
+
+      await client.from('patients').upsert({
+        id: finalId,
+        user_id: finalId,
+        full_name: formDataObj.fullName,
+        dni: formDataObj.cedula,
+        phone: formDataObj.phone,
+        address: formDataObj.direccion,
+        age: formDataObj.age,
+        gender: formDataObj.gender,
+        medical_history: formDataObj.medical_history,
+        consultation_reason: formDataObj.consultation_reason,
+        accepts_requests: true
+      });
+    }
+
     const res = await fetch('/api/auth/register-offline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fullName: formData.fullName,
-        email: formData.email.trim(),
-        password: formData.password,
-        role: 'patient',
-        cedula: formData.cedula,
-        age: formData.age || null,
-        phone: formData.phone || null,
-        direccion: formData.direccion || null,
-        medical_history: formData.medicalHistory || null,
-        consultation_reason: formData.consultationReason || null,
-        gender: formData.gender || null
-      })
+      body: JSON.stringify(formDataObj)
     });
     
     const json = await res.json();
     showLoading(false);
     
-    if (!json.success) {
+    if (!json.success && !finalId) {
       showToast('Error en registro: ' + json.message, 'error');
       return;
     }
@@ -368,7 +465,18 @@ async function requireAuth() {
   if (offlineSession) {
     try {
       const data = JSON.parse(offlineSession);
-      return { user: data.user, profile: data.user, roleData: null };
+      
+      // Fetch roleData completely
+      let roleData = null;
+      try {
+        const res = await fetch('/api/auth/profile/' + data.user.id);
+        const json = await res.json();
+        if (json.success && json.data) {
+          roleData = json.data.roleData;
+        }
+      } catch (e) {}
+
+      return { user: data.user, profile: data.user, roleData: roleData };
     } catch (e) {
       console.warn('Error parsing offline session', e);
     }

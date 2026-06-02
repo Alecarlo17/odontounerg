@@ -7,6 +7,30 @@
  * Enviar solicitud de estudiante a paciente
  */
 async function sendRequest(studentId, patientId, message = '') {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { data: existing } = await client.from('requests')
+      .select('id').eq('student_id', studentId).eq('patient_id', patientId)
+      .in('status', ['pending', 'accepted', 'active']).single();
+
+    if (existing) {
+      showToast('Ya tiene una solicitud activa con este paciente', 'warning');
+      return false;
+    }
+
+    const { error } = await client.from('requests').insert({
+      student_id: studentId,
+      patient_id: patientId,
+      status: 'pending',
+      message: message || null
+    });
+
+    if (error) {
+      showToast('Error al enviar solicitud', 'error');
+      return false;
+    }
+  }
+
   try {
     const res = await fetch('/api/requests', {
       method: 'POST',
@@ -14,15 +38,18 @@ async function sendRequest(studentId, patientId, message = '') {
       body: JSON.stringify({ studentId, patientId, message })
     });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al enviar solicitud', 'warning');
       return false;
     }
     showToast('Solicitud enviada exitosamente', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 
@@ -30,18 +57,36 @@ async function sendRequest(studentId, patientId, message = '') {
  * Aceptar solicitud
  */
 async function acceptRequest(requestId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('requests')
+      .update({ status: 'accepted', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+      
+    if (error) {
+      showToast('Error al aceptar solicitud', 'error');
+      return false;
+    }
+    
+    // Crear conversación
+    await client.from('conversations').upsert({ request_id: requestId }).catch(()=>{});
+  }
+
   try {
     const res = await fetch(`/api/requests/${requestId}/accept`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al aceptar solicitud', 'error');
       return false;
     }
     showToast('Solicitud aceptada', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 
@@ -49,18 +94,33 @@ async function acceptRequest(requestId) {
  * Rechazar solicitud
  */
 async function rejectRequest(requestId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('requests')
+      .update({ status: 'rejected', updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+      
+    if (error) {
+      showToast('Error al rechazar solicitud', 'error');
+      return false;
+    }
+  }
+
   try {
     const res = await fetch(`/api/requests/${requestId}/reject`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success) {
+    if (!json.success && !navigator.onLine) {
       showToast(json.message || 'Error al rechazar solicitud', 'error');
       return false;
     }
     showToast('Solicitud rechazada', 'success');
     return true;
   } catch (error) {
-    showToast('Error de conexión', 'error');
-    return false;
+    if (!navigator.onLine) {
+      showToast('Error de conexión', 'error');
+      return false;
+    }
+    return true;
   }
 }
 

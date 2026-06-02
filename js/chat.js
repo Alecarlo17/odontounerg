@@ -9,25 +9,48 @@ let chatPollingInterval = null;
  * Obtener conversaciones del usuario
  */
 async function getConversations(userId) {
-  try {
-    const res = await fetch(`/api/chat/conversations/${userId}`);
-    const json = await res.json();
-    const conversations = json.data || [];
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { data: requests } = await client.from('requests').select('id, student:student_id(id, full_name, avatar_url), patient:patient_id(id, full_name, avatar_url)').or(`student_id.eq.${userId},patient_id.eq.${userId}`).in('status', ['accepted', 'active']);
     
-    // Formatear para que coincida con la interfaz del frontend original
-    return conversations.map(c => {
-      const isStudent = c.student_id === userId;
-      const otherUser = isStudent ? c.patient : c.student;
+    if (!requests || requests.length === 0) return [];
+    
+    return requests.map(r => {
+      const isStudent = r.student.id === userId;
+      const otherUser = isStudent ? r.patient : r.student;
       return {
-        conversationId: c.id,
-        requestId: c.id, // usamos el mismo ID
+        conversationId: r.id,
+        requestId: r.id,
         otherUser: {
           id: otherUser.id,
           full_name: otherUser.full_name,
           avatar_url: otherUser.avatar_url,
           disponibilidad: 'disponible'
         },
-        lastMessage: { content: '...' }, // No cargamos el último mensaje por simplicidad offline
+        lastMessage: { content: '...' },
+        unreadCount: 0
+      };
+    });
+  }
+
+  try {
+    const res = await fetch(`/api/chat/conversations/${userId}`);
+    const json = await res.json();
+    const conversations = json.data || [];
+    
+    return conversations.map(c => {
+      const isStudent = c.student_id === userId;
+      const otherUser = isStudent ? c.patient : c.student;
+      return {
+        conversationId: c.id,
+        requestId: c.id,
+        otherUser: {
+          id: otherUser.id,
+          full_name: otherUser.full_name,
+          avatar_url: otherUser.avatar_url,
+          disponibilidad: 'disponible'
+        },
+        lastMessage: { content: '...' },
         unreadCount: 0
       };
     });
@@ -40,6 +63,14 @@ async function getConversations(userId) {
  * Obtener mensajes de una conversación
  */
 async function getMessages(conversationId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { data } = await client.from('chats').select('*').eq('receiver_id', conversationId).order('created_at', { ascending: true });
+    // Note: We used receiver_id to hold conversationId previously when adapting, let's also query correctly.
+    // Actually our /api/chat uses receiver_id as the conversation id temporarily in SQLite
+    const { data: directData } = await client.from('chats').select('*').or(`sender_id.eq.${conversationId},receiver_id.eq.${conversationId}`).order('created_at', { ascending: true });
+    return directData || [];
+  }
   try {
     const res = await fetch(`/api/chat/messages/${conversationId}`);
     const json = await res.json();
@@ -55,6 +86,18 @@ async function getMessages(conversationId) {
 async function sendMessage(conversationId, senderId, content) {
   if (!content || !content.trim()) return false;
 
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { error } = await client.from('chats').insert({
+      id: Date.now().toString(),
+      sender_id: senderId,
+      receiver_id: conversationId,
+      message: content,
+      created_at: new Date().toISOString()
+    });
+    if (error) return false;
+  }
+
   try {
     const res = await fetch('/api/chat/messages', {
       method: 'POST',
@@ -62,10 +105,10 @@ async function sendMessage(conversationId, senderId, content) {
       body: JSON.stringify({ conversationId, senderId, content })
     });
     const json = await res.json();
-    if (!json.success) throw new Error();
+    if (!json.success && !navigator.onLine) throw new Error();
     return true;
   } catch(e) {
-    showToast('Error al enviar mensaje offline', 'error');
+    if (!navigator.onLine) showToast('Error al enviar mensaje offline', 'error');
     return false;
   }
 }
@@ -74,8 +117,11 @@ async function sendMessage(conversationId, senderId, content) {
  * Marcar mensajes como leídos
  */
 async function markMessagesAsRead(conversationId, userId) {
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    await client.from('chats').update({ read: 1 }).eq('receiver_id', conversationId).neq('sender_id', userId).catch(()=>{});
+  }
   try {
-    // Implementación simplificada
     await fetch(`/api/chat/messages/${conversationId}/read`, { method: 'PUT' });
   } catch(e) {}
 }

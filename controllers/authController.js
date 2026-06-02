@@ -101,6 +101,7 @@ async function validatePatientRegistration(req, res) {
  */
 async function getProfile(req, res) {
   const { userId } = req.params;
+  const db = require('../config/database');
 
   const profile = await UsersModel.getProfileById(userId);
   if (!profile) {
@@ -110,7 +111,14 @@ async function getProfile(req, res) {
     });
   }
 
-  return res.json({ success: true, data: profile });
+  let roleData = null;
+  if (profile.role === 'student') {
+    roleData = await db.getSQLite('SELECT * FROM students WHERE user_id = ?', [userId]);
+  } else if (profile.role === 'patient') {
+    roleData = await db.getSQLite('SELECT * FROM patients WHERE user_id = ?', [userId]);
+  }
+
+  return res.json({ success: true, data: { ...profile, roleData } });
 }
 
 /**
@@ -166,7 +174,7 @@ async function syncProfileOffline(req, res) {
  * Registro Offline (usando SQLite)
  */
 async function registerOffline(req, res) {
-  const { fullName, email, password, role, cedula, academicYear, section, treatments } = req.body;
+  const { id: providedId, fullName, email, password, role, cedula, academicYear, section, treatments, age, phone, direccion, medical_history, consultation_reason, gender } = req.body;
   const db = require('../config/database');
   try {
     // Verificar si el email ya existe
@@ -175,7 +183,7 @@ async function registerOffline(req, res) {
       return res.status(400).json({ success: false, message: 'El correo electrónico ya está registrado' });
     }
 
-    const id = Date.now().toString(); // Simple ID para modo local
+    const id = providedId || Date.now().toString(); // Usar ID provisto (ej. de Supabase) o generar uno
     const created_at = new Date().toISOString();
 
     // 1. Insertar perfil
@@ -190,18 +198,11 @@ async function registerOffline(req, res) {
         'INSERT INTO students (id, user_id, academic_year, section, student_id_card, treatments_needed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [id, id, academicYear || null, section || null, cedula, JSON.stringify(treatments || []), created_at]
       );
-    }
-    // Si es paciente, podemos insertar en table patients si existiera, o profile is enough
-    
-    // Intento de crear auth en supabase si hay internet (opcional)
-    if (await db.getStatus()) {
-      db.supabase.auth.signUp({
-        email: email, password: password, options: { data: { full_name: fullName, role: role } }
-      }).then(async ({data}) => {
-         if(data && data.user) {
-            db.supabase.from('profiles').upsert({ id: data.user.id, full_name: fullName, email, role }).then(()=>{}).catch(()=>{});
-         }
-      }).catch(()=>{});
+    } else if (role === 'patient') {
+      await db.runSQLite(
+        'INSERT INTO patients (id, user_id, full_name, dni, phone, address, age, gender, medical_history, consultation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, id, fullName, cedula, phone || null, direccion || null, age || null, gender || null, medical_history || null, consultation_reason || null, created_at]
+      );
     }
 
     return res.json({ success: true, message: 'Registro exitoso en modo local', user: { id, email, full_name: fullName, role } });
