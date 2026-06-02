@@ -14,6 +14,17 @@
  * Redirigir al dashboard correspondiente si ya tiene sesión
  */
 async function checkAuthAndRedirect() {
+  const offlineSession = localStorage.getItem('offline_session');
+  if (offlineSession) {
+    try {
+      const data = JSON.parse(offlineSession);
+      if (data.user && data.user.role) {
+        redirectByRole(data.user.role);
+        return;
+      }
+    } catch (e) {}
+  }
+
   const client = window.supabaseClient || supabase;
   const { data: { session } } = await client.auth.getSession();
   if (session) {
@@ -347,12 +358,19 @@ async function logout() {
  * @returns {object|null} - Datos del usuario o null
  */
 async function requireAuth() {
-  if (!navigator.onLine) {
-    const offlineSession = localStorage.getItem('offline_session');
-    if (offlineSession) {
+  const offlineSession = localStorage.getItem('offline_session');
+  
+  // Si existe una sesión local, la respetamos como prioritaria
+  if (offlineSession) {
+    try {
       const data = JSON.parse(offlineSession);
       return { user: data.user, profile: data.user, roleData: null };
+    } catch (e) {
+      console.warn('Error parsing offline session', e);
     }
+  }
+
+  if (!navigator.onLine) {
     navigateTo('/login');
     return null;
   }
