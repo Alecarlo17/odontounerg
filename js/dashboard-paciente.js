@@ -43,20 +43,36 @@ async function loadDashboardData() {
 
 async function loadStats() {
   const userId = currentUser.user.id;
-  try {
-    const res = await fetch(`/api/dashboard/patient/${userId}`);
-    const json = await res.json();
-    const stats = json.data || { pendingRequests: 0, acceptedRequests: 0, activeAppointments: 0 };
+  let stats = { pendingRequests: 0, acceptedRequests: 0, activeAppointments: 0 };
+  
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    const { count: pReq } = await client.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'pending');
+    const { count: aReq } = await client.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).in('status', ['accepted', 'active']);
     
-    document.getElementById('stats-grid').innerHTML = `
-      <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests}</div></div></div>
-      <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes Asignados</div><div class="stat-value">${stats.acceptedRequests}</div></div></div>
-      <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${stats.activeAppointments}</div></div></div>
-    `;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-  } catch (e) {
-    console.error('Error loading stats:', e);
+    const { data: reqs } = await client.from('requests').select('id').eq('patient_id', userId);
+    let appts = 0;
+    if (reqs && reqs.length > 0) {
+      const { count: cAppt } = await client.from('appointments').select('*', { count: 'exact', head: true }).in('request_id', reqs.map(r=>r.id)).in('status', ['proposed', 'confirmed']);
+      appts = cAppt || 0;
+    }
+    stats = { pendingRequests: pReq || 0, acceptedRequests: aReq || 0, activeAppointments: appts };
+  } else {
+    try {
+      const res = await fetch(`/api/dashboard/patient/${userId}`);
+      const json = await res.json();
+      if (json.data) stats = json.data;
+    } catch (e) {
+      console.error('Error loading stats:', e);
+    }
   }
+  
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests}</div></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes Asignados</div><div class="stat-value">${stats.acceptedRequests}</div></div></div>
+    <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${stats.activeAppointments}</div></div></div>
+  `;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function loadPendingRequestsPreview() {

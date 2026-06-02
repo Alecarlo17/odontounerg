@@ -2,13 +2,13 @@ const db = require('./config/database');
 
 async function generateOfflineData() {
   console.log('Generando perfiles offline en SQLite...');
-  
+
   const created_at = new Date().toISOString();
-  
+
   // Estudiantes
   const estudiantes = [
-    { id: 'est-1', email: 'estudiante1@unerg.edu.ve', full_name: 'Ana Pérez', role: 'student', phone: '04121112233', disp: 'disponible', year: '3', section: 'A' },
-    { id: 'est-2', email: 'estudiante2@unerg.edu.ve', full_name: 'Carlos Ruiz', role: 'student', phone: '04145556677', disp: 'disponible', year: '4', section: 'B' }
+    { id: 'est-1', email: 'estudiante4@unerg.edu.ve', full_name: 'Ana Pérez', role: 'student', phone: '04121112233', disp: 'disponible', year: '3', section: '29' },
+    { id: 'est-2', email: 'estudiante5@unerg.edu.ve', full_name: 'Carlos Ruiz', role: 'student', phone: '04145556677', disp: 'disponible', year: '4', section: '30' }
   ];
 
   for (const est of estudiantes) {
@@ -43,7 +43,7 @@ async function generateOfflineData() {
       [pac.id, pac.id, pac.full_name, pac.phone, pac.reason, created_at]
     );
   }
-  
+
   console.log('Datos generados exitosamente.');
 }
 

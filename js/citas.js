@@ -36,13 +36,29 @@ async function createAppointment(citaData) {
  * Obtener citas del usuario
  */
 async function getAppointments(userId, status = null) {
-  try {
-    const url = status ? `/api/appointments/user/${userId}?status=${status}` : `/api/appointments/user/${userId}`;
-    const res = await fetch(url);
-    const json = await res.json();
-    return json.data || [];
-  } catch (error) {
-    return [];
+  if (navigator.onLine) {
+    const client = window.supabaseClient || supabase;
+    
+    // First get the user's requests
+    const { data: requests } = await client.from('requests').select('id').or(`student_id.eq.${userId},patient_id.eq.${userId}`);
+    if (!requests || requests.length === 0) return [];
+    
+    const reqIds = requests.map(r => r.id);
+    let query = client.from('appointments').select('*, request:request_id(*, student:student_id(id, full_name, email, avatar_url, phone), patient:patient_id(id, full_name, email, avatar_url, phone))').in('request_id', reqIds).order('date', { ascending: true });
+    
+    if (status) query = query.eq('status', status);
+    
+    const { data } = await query;
+    return data || [];
+  } else {
+    try {
+      const url = status ? `/api/appointments/user/${userId}?status=${status}` : `/api/appointments/user/${userId}`;
+      const res = await fetch(url);
+      const json = await res.json();
+      return json.data || [];
+    } catch (error) {
+      return [];
+    }
   }
 }
 
