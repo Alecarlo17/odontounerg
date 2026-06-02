@@ -179,6 +179,14 @@
 .form-input.error {
   border-color: var(--error);
   box-shadow: 0 0 0 3px var(--error-bg);
+  animation: shake 0.35s ease;
+}
+
+/* Estado válido: borde verde cuando el campo es correcto */
+.form-input.success,
+.form-select.success {
+  border-color: var(--success);
+  box-shadow: 0 0 0 3px var(--success-bg);
 }
 
 .form-error {
@@ -186,11 +194,30 @@
   color: var(--error);
   margin-top: 0.35rem;
   display: none;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .form-error.visible {
-  display: block;
+  display: flex;
 }
+
+/* Icono de error antes del mensaje */
+.form-error::before {
+  content: '⚠';
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* Animación de shake para campos inválidos */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
 
 /* Input con icono */
 .input-with-icon {

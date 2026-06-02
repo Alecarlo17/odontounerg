@@ -1,5 +1,5 @@
 /* =============================================
-   REPORTES.JS - Generación de Reportes PDF
+   REPORTES.JS - Generación de Reportes PDF (MVC)
    + Reporte de Usuarios + Envío de Imágenes
    ============================================= */
 
@@ -7,11 +7,6 @@
    REPORTE DE USUARIOS EN CHAT
    ============================================= */
 
-/**
- * Abrir modal de reporte de usuario
- * @param {string} userId - ID del usuario a reportar
- * @param {string} conversationId - ID de la conversación
- */
 function openReportModal(userId, conversationId) {
   document.getElementById('report-user-id').value = userId;
   document.getElementById('report-conversation-id').value = conversationId;
@@ -20,10 +15,6 @@ function openReportModal(userId, conversationId) {
   document.getElementById('modal-reportar').classList.add('active');
 }
 
-/**
- * Manejar envío de reporte de usuario
- * @param {Event} event - Evento del formulario
- */
 async function handleReportUser(event) {
   event.preventDefault();
   
@@ -38,29 +29,22 @@ async function handleReportUser(event) {
     return;
   }
 
-  const { error } = await supabase.from('user_reports').insert({
-    reporter_id: reporterId,
-    reported_id: reportedId,
-    conversation_id: conversationId,
-    motivo: motivo,
-    observacion: observacion || null,
-    status: 'pendiente'
-  });
-
-  if (error) {
+  try {
+    const res = await fetch('/api/chat/report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reporterId, reportedId, conversationId, motivo, observacion })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error();
+    
+    showToast('Reporte enviado correctamente', 'success');
+    closeModal('modal-reportar');
+  } catch (e) {
     showToast('Error al enviar el reporte', 'error');
-    console.error('Error reportando usuario:', error);
-    return;
   }
-
-  showToast('Reporte enviado correctamente', 'success');
-  closeModal('modal-reportar');
 }
 
-/**
- * Cerrar modal por ID
- * @param {string} modalId - ID del modal
- */
 function closeModal(modalId) {
   document.getElementById(modalId)?.classList.remove('active');
 }
@@ -69,12 +53,6 @@ function closeModal(modalId) {
    ENVÍO DE IMÁGENES EN CHAT
    ============================================= */
 
-/**
- * Enviar imagen en el chat
- * @param {File} file - Archivo de imagen
- * @param {string} conversationId - ID de la conversación
- * @param {string} senderId - ID del remitente
- */
 async function sendChatImage(file, conversationId, senderId) {
   if (!file) return;
 
@@ -90,112 +68,95 @@ async function sendChatImage(file, conversationId, senderId) {
 
   showLoading(true);
   try {
-    const fileName = `chat/${conversationId}/${Date.now()}_${file.name}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('chat-images')
-      .upload(fileName, file);
-
-    if (uploadError) {
-      showToast('Error al subir la imagen', 'error');
+    // Modo Offline / MVC: Convertimos a base64
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target.result;
+      
+      const res = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, senderId, content: '📷 Imagen: ' + base64.substring(0, 50) + '...' })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error();
+      
+      showToast('Imagen enviada', 'success');
       showLoading(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('chat-images')
-      .getPublicUrl(fileName);
-
-    const { error: msgError } = await supabase.from('messages').insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content: 'Imagen',
-      image_url: urlData.publicUrl,
-      message_type: 'image'
-    });
-
-    if (msgError) {
-      showToast('Error al enviar la imagen', 'error');
-    }
+    };
+    reader.readAsDataURL(file);
   } catch (err) {
     showToast('Error al procesar la imagen', 'error');
-    console.error('Error:', err);
+    showLoading(false);
   }
-  showLoading(false);
 }
 
 /* =============================================
    REPORTES ADMIN - Tabla de reportes
    ============================================= */
 
-/**
- * Cargar reportes de usuarios (para el admin)
- */
 async function loadUserReports() {
-  const { data: reports } = await supabase
-    .from('user_reports')
-    .select(`
-      *,
-      reporter:reporter_id(full_name, email),
-      reported:reported_id(full_name, email)
-    `)
-    .order('created_at', { ascending: false });
+  try {
+    const res = await fetch('/api/chat/reports');
+    const json = await res.json();
+    const reports = json.data || [];
 
-  const container = document.getElementById('reports-table');
-  if (!container) return;
+    const container = document.getElementById('reports-table');
+    if (!container) return;
 
-  if (!reports || reports.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="flag"></i></div><p class="empty-state-title">Sin reportes</p><p class="empty-state-text">No hay reportes de usuarios</p></div>';
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-    return;
+    if (reports.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="flag"></i></div><p class="empty-state-title">Sin reportes</p><p class="empty-state-text">No hay reportes de usuarios</p></div>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    const motivoLabels = {
+      'comportamiento_inapropiado': 'Comportamiento inapropiado',
+      'spam': 'Spam',
+      'lenguaje_ofensivo': 'Lenguaje ofensivo',
+      'otro': 'Otro'
+    };
+
+    const statusLabels = {
+      'pendiente': { text: 'Pendiente', class: 'badge-warning' },
+      'revisado': { text: 'Revisado', class: 'badge-primary' },
+      'resuelto': { text: 'Resuelto', class: 'badge-success' }
+    };
+
+    container.innerHTML = `
+      <table class="data-table">
+        <thead><tr>
+          <th>Reportador</th>
+          <th>Reportado</th>
+          <th>Motivo</th>
+          <th>Observación</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+        </tr></thead>
+        <tbody>
+          ${reports.map(r => {
+            const sl = statusLabels[r.status] || { text: r.status, class: 'badge-gray' };
+            return `<tr>
+              <td>${escapeHTML(r.created_by || r.reporter_id || '-')}</td>
+              <td>${escapeHTML(r.reported_id || '-')}</td>
+              <td>${motivoLabels[r.motivo] || r.motivo || '-'}</td>
+              <td>${r.content ? escapeHTML(r.content).substring(0, 50) : '-'}</td>
+              <td><span class="badge ${sl.class}">${sl.text}</span></td>
+              <td>${formatDate(r.created_at)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    console.error('Error al cargar reportes:', e);
   }
-
-  const motivoLabels = {
-    'comportamiento_inapropiado': 'Comportamiento inapropiado',
-    'spam': 'Spam',
-    'lenguaje_ofensivo': 'Lenguaje ofensivo',
-    'otro': 'Otro'
-  };
-
-  const statusLabels = {
-    'pendiente': { text: 'Pendiente', class: 'badge-warning' },
-    'revisado': { text: 'Revisado', class: 'badge-primary' },
-    'resuelto': { text: 'Resuelto', class: 'badge-success' }
-  };
-
-  container.innerHTML = `
-    <table class="data-table">
-      <thead><tr>
-        <th>Reportador</th>
-        <th>Reportado</th>
-        <th>Motivo</th>
-        <th>Observación</th>
-        <th>Estado</th>
-        <th>Fecha</th>
-      </tr></thead>
-      <tbody>
-        ${reports.map(r => {
-          const sl = statusLabels[r.status] || { text: r.status, class: 'badge-gray' };
-          return `<tr>
-            <td>${escapeHTML(r.reporter?.full_name || '-')}</td>
-            <td>${escapeHTML(r.reported?.full_name || '-')}</td>
-            <td>${motivoLabels[r.motivo] || r.motivo}</td>
-            <td>${r.observacion ? escapeHTML(r.observacion).substring(0, 50) : '-'}</td>
-            <td><span class="badge ${sl.class}">${sl.text}</span></td>
-            <td>${formatDate(r.created_at)}</td>
-          </tr>`;
-        }).join('')}
-      </tbody>
-    </table>
-  `;
 }
 
 /* =============================================
    GENERACIÓN DE REPORTES PDF
    ============================================= */
 
-/**
- * Generar reporte de citas en PDF
- */
 async function generateAppointmentsReport(appointments, userName) {
   await loadJsPDF();
   const { jsPDF } = window.jspdf;
@@ -257,9 +218,6 @@ async function generateAppointmentsReport(appointments, userName) {
   showToast('Reporte generado exitosamente', 'success');
 }
 
-/**
- * Generar reporte de tratamientos
- */
 async function generateTreatmentsReport(treatments, userName) {
   await loadJsPDF();
   const { jsPDF } = window.jspdf;
@@ -307,14 +265,11 @@ async function generateTreatmentsReport(treatments, userName) {
   showToast('Reporte generado', 'success');
 }
 
-/**
- * Cargar librería jsPDF dinámicamente
- */
 function loadJsPDF() {
   return new Promise((resolve) => {
     if (window.jspdf) { resolve(); return; }
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.src = '/js/libs/jspdf.umd.min.js'; // URL LOCAL OFFLINE
     script.onload = resolve;
     document.head.appendChild(script);
   });

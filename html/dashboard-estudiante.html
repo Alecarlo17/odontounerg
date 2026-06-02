@@ -99,7 +99,7 @@
         <!-- SECCIÓN INICIO -->
         <section id="section-inicio">
           <div class="stats-grid" id="stats-grid"></div>
-          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem;" id="inicio-grid">
+          <div class="inicio-grid" id="inicio-grid">
             <!-- Próximas citas -->
             <div class="card">
               <div class="card-header">
@@ -277,6 +277,9 @@
     </main>
   </div>
 
+  <!-- Overlay para cerrar el sidebar en móvil al tocar fuera -->
+  <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
+
   <!-- Modal Nueva Cita -->
   <div class="modal-overlay" id="modal-nueva-cita">
     <div class="modal">
@@ -335,7 +338,7 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/utils.js"></script>
   <script src="../js/auth.js"></script>

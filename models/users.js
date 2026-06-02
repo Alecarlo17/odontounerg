@@ -1,98 +1,96 @@
 /* =============================================
    MODEL: USERS.JS
    Modelo de datos para usuarios y perfiles
-   
-   Este modelo encapsula las consultas a Supabase
-   relacionadas con la gestión de usuarios,
-   perfiles y autenticación.
+   SQLite como Principal
    ============================================= */
 
-const supabase = require('../config/supabase');
+const db = require('../config/database');
 
 /**
  * Obtener perfil de un usuario por su ID
- * @param {string} userId - ID del usuario
- * @returns {object|null} Datos del perfil
  */
 async function getProfileById(userId) {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) return null;
-  return data;
+  try {
+    const data = await db.getSQLite('SELECT * FROM profiles WHERE id = ?', [userId]);
+    return data || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 /**
  * Obtener todos los perfiles (para administración)
- * @param {string} role - Filtrar por rol (opcional)
- * @returns {Array} Lista de perfiles
  */
 async function getAllProfiles(role = null) {
-  let query = supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (role && role !== 'all') {
-    query = query.eq('role', role);
+  try {
+    let sql = 'SELECT * FROM profiles';
+    let params = [];
+    if (role && role !== 'all') {
+      sql += ' WHERE role = ?';
+      params.push(role);
+    }
+    sql += ' ORDER BY created_at DESC';
+    const data = await db.querySQLite(sql, params);
+    return data || [];
+  } catch (e) {
+    return [];
   }
-
-  const { data } = await query;
-  return data || [];
 }
 
 /**
  * Actualizar perfil de un usuario
- * @param {string} userId - ID del usuario
- * @param {object} profileData - Datos a actualizar
- * @returns {boolean} Éxito de la operación
  */
 async function updateUserProfile(userId, profileData) {
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      full_name: profileData.fullName,
-      phone: profileData.phone,
-      disponibilidad: profileData.disponibilidad,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', userId);
+  const updated_at = new Date().toISOString();
+  try {
+    await db.runSQLite(
+      'UPDATE profiles SET full_name = ?, phone = ?, disponibilidad = ?, updated_at = ? WHERE id = ?',
+      [profileData.fullName, profileData.phone, profileData.disponibilidad, updated_at, userId]
+    );
 
-  return !error;
+    if (await db.getStatus()) {
+      db.supabase.from('profiles').update({
+        full_name: profileData.fullName,
+        phone: profileData.phone,
+        disponibilidad: profileData.disponibilidad,
+        updated_at: updated_at
+      }).eq('id', userId).then(()=>{}).catch(()=>{});
+    }
+
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /**
  * Contar usuarios por rol
- * @param {string} role - Rol del usuario
- * @returns {number} Cantidad de usuarios
  */
 async function countByRole(role) {
-  const { count } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', role);
-
-  return count || 0;
+  try {
+    const data = await db.getSQLite('SELECT COUNT(*) as count FROM profiles WHERE role = ?', [role]);
+    return data ? data.count : 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 /**
  * Eliminar perfil de un usuario
- * @param {string} userId - ID del usuario
- * @returns {boolean} Éxito de la operación
  */
 async function deleteProfile(userId) {
-  const { error } = await supabase
-    .from('profiles')
-    .delete()
-    .eq('id', userId);
+  try {
+    await db.runSQLite('DELETE FROM profiles WHERE id = ?', [userId]);
 
-  return !error;
+    if (await db.getStatus()) {
+      db.supabase.from('profiles').delete().eq('id', userId).then(()=>{}).catch(()=>{});
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
-// Exportar funciones del modelo
 module.exports = {
   getProfileById,
   getAllProfiles,

@@ -25,6 +25,21 @@ async function getMessages(req, res) {
 }
 
 /**
+ * Marcar mensajes como leídos
+ */
+async function markMessagesAsRead(req, res) {
+  const { conversationId } = req.params;
+  // SQLite implementation update
+  const db = require('../config/database');
+  try {
+    await db.runSQLite('UPDATE chats SET read = 1 WHERE id LIKE ?', [conversationId + '%']);
+    return res.json({ success: true });
+  } catch(e) {
+    return res.status(500).json({ success: false });
+  }
+}
+
+/**
  * Enviar mensaje de texto
  */
 async function sendMessage(req, res) {
@@ -87,6 +102,7 @@ async function getAllReports(req, res) {
 module.exports = {
   getConversations,
   getMessages,
+  markMessagesAsRead,
   sendMessage,
   reportUser,
   getAllReports

@@ -1,172 +1,125 @@
 /* =============================================
-   CHAT.JS - Sistema de Chat en Tiempo Real
+   CHAT.JS - Sistema de Chat (MVC / Offline)
    ============================================= */
 
-// Variable global para la suscripción activa
-let chatSubscription = null;
 let currentConversationId = null;
+let chatPollingInterval = null;
 
 /**
  * Obtener conversaciones del usuario
- * @param {string} userId
  */
 async function getConversations(userId) {
-  // Obtener requests donde el usuario es estudiante o paciente y están aceptadas
-  const { data: requests } = await supabase
-    .from('requests')
-    .select(`
-      id,
-      student_id,
-      patient_id,
-      status,
-      conversations(id, created_at)
-    `)
-    .or(`student_id.eq.${userId},patient_id.eq.${userId}`)
-    .in('status', ['accepted', 'active', 'completed'])
-    .order('updated_at', { ascending: false });
-
-  if (!requests) return [];
-
-  // Enriquecer con datos del otro usuario y último mensaje
-  const conversations = [];
-  for (const req of requests) {
-    if (!req.conversations || req.conversations.length === 0) continue;
-    const conv = req.conversations[0];
-    const otherUserId = req.student_id === userId ? req.patient_id : req.student_id;
-
-    // Obtener datos del otro usuario
-    const { data: otherUser } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url, disponibilidad')
-      .eq('id', otherUserId)
-      .single();
-
-    // Obtener último mensaje
-    const { data: lastMsg } = await supabase
-      .from('messages')
-      .select('content, created_at, sender_id')
-      .eq('conversation_id', conv.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    // Contar no leídos
-    const { count } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('conversation_id', conv.id)
-      .eq('read', false)
-      .neq('sender_id', userId);
-
-    conversations.push({
-      conversationId: conv.id,
-      requestId: req.id,
-      otherUser,
-      lastMessage: lastMsg,
-      unreadCount: count || 0
+  try {
+    const res = await fetch(`/api/chat/conversations/${userId}`);
+    const json = await res.json();
+    const conversations = json.data || [];
+    
+    // Formatear para que coincida con la interfaz del frontend original
+    return conversations.map(c => {
+      const isStudent = c.student_id === userId;
+      const otherUser = isStudent ? c.patient : c.student;
+      return {
+        conversationId: c.id,
+        requestId: c.id, // usamos el mismo ID
+        otherUser: {
+          id: otherUser.id,
+          full_name: otherUser.full_name,
+          avatar_url: otherUser.avatar_url,
+          disponibilidad: 'disponible'
+        },
+        lastMessage: { content: '...' }, // No cargamos el último mensaje por simplicidad offline
+        unreadCount: 0
+      };
     });
+  } catch(e) {
+    return [];
   }
-
-  return conversations;
 }
 
 /**
  * Obtener mensajes de una conversación
- * @param {string} conversationId
  */
 async function getMessages(conversationId) {
-  const { data } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true });
-
-  return data || [];
+  try {
+    const res = await fetch(`/api/chat/messages/${conversationId}`);
+    const json = await res.json();
+    return json.data || [];
+  } catch(e) {
+    return [];
+  }
 }
 
 /**
  * Enviar mensaje
- * @param {string} conversationId
- * @param {string} senderId
- * @param {string} content
  */
 async function sendMessage(conversationId, senderId, content) {
   if (!content || !content.trim()) return false;
 
-  const { error } = await supabase.from('messages').insert({
-    conversation_id: conversationId,
-    sender_id: senderId,
-    content: content.trim()
-  });
-
-  if (error) {
-    showToast('Error al enviar mensaje', 'error');
+  try {
+    const res = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, senderId, content })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error();
+    return true;
+  } catch(e) {
+    showToast('Error al enviar mensaje offline', 'error');
     return false;
   }
-  return true;
 }
 
 /**
  * Marcar mensajes como leídos
- * @param {string} conversationId
- * @param {string} userId - ID del usuario que está leyendo
  */
 async function markMessagesAsRead(conversationId, userId) {
-  await supabase
-    .from('messages')
-    .update({ read: true })
-    .eq('conversation_id', conversationId)
-    .neq('sender_id', userId)
-    .eq('read', false);
+  try {
+    // Implementación simplificada
+    await fetch(`/api/chat/messages/${conversationId}/read`, { method: 'PUT' });
+  } catch(e) {}
 }
 
 /**
- * Suscribirse a mensajes en tiempo real
- * @param {string} conversationId
- * @param {Function} callback
+ * Suscribirse a mensajes en tiempo real (Polling local)
  */
 function subscribeToMessages(conversationId, callback) {
-  // Cancelar suscripción anterior si existe
-  if (chatSubscription) {
-    supabase.removeChannel(chatSubscription);
-  }
+  unsubscribeFromMessages();
+  let lastChecked = new Date().toISOString();
 
-  chatSubscription = supabase
-    .channel('messages-' + conversationId)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'messages',
-      filter: `conversation_id=eq.${conversationId}`
-    }, (payload) => {
-      callback(payload.new);
-    })
-    .subscribe();
+  chatPollingInterval = setInterval(async () => {
+    try {
+      const msgs = await getMessages(conversationId);
+      const nuevas = msgs.filter(m => m.created_at > lastChecked);
+      if (nuevas.length > 0) {
+        lastChecked = nuevas[nuevas.length - 1].created_at;
+        nuevas.forEach(m => callback(m));
+      }
+    } catch(e) {}
+  }, 3000); // Polling cada 3 segundos
 }
 
 /**
  * Cancelar suscripción al chat
  */
 function unsubscribeFromMessages() {
-  if (chatSubscription) {
-    supabase.removeChannel(chatSubscription);
-    chatSubscription = null;
+  if (chatPollingInterval) {
+    clearInterval(chatPollingInterval);
+    chatPollingInterval = null;
   }
 }
 
 /**
  * Renderizar un mensaje como HTML
- * @param {object} msg - Datos del mensaje
- * @param {string} currentUserId - ID del usuario actual
- * @returns {string} HTML
  */
 function renderMessage(msg, currentUserId) {
   const isSent = msg.sender_id === currentUserId;
   const time = new Date(msg.created_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 
   let contentHTML;
-  if (msg.message_type === 'image' && msg.image_url) {
-    contentHTML = `<div class="message-image"><a href="${msg.image_url}" target="_blank"><img src="${msg.image_url}" alt="Imagen" loading="lazy"></a></div>`;
+  if (msg.content && msg.content.startsWith('📷 Imagen: ')) {
+    const url = msg.content.replace('📷 Imagen: ', '');
+    contentHTML = `<div class="message-image"><a href="#" target="_blank"><img src="${url}" alt="Imagen" loading="lazy"></a></div>`;
   } else {
     contentHTML = `<div class="message-bubble">${escapeHTML(msg.content)}</div>`;
   }

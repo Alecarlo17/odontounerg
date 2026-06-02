@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
   <title>Dashboard Paciente - OdontoUNERG</title>
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/auth.css">
@@ -14,11 +15,13 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <div class="sidebar-logo-icon"><i data-lucide="heart-pulse"></i></div>
-        <div>
-          <span class="sidebar-logo-text">OdontoUNERG</span>
-          <span class="sidebar-logo-sub">Paciente</span>
-        </div>
+        <a href="/" class="sidebar-logo" style="display:flex;align-items:center;text-decoration:none;">
+          <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 48px; width: auto; margin-right: 10px;">
+          <div>
+            <span class="sidebar-logo-text" style="color:var(--text);">OdontoUNERG</span>
+            <span class="sidebar-logo-sub" style="color:var(--text-muted);">Paciente</span>
+          </div>
+        </a>
       </div>
       <nav class="sidebar-nav">
         <div class="sidebar-section">
@@ -74,7 +77,7 @@
         <!-- INICIO -->
         <section id="section-inicio">
           <div class="stats-grid" id="stats-grid"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="inicio-grid">
+          <div class="inicio-grid" id="inicio-grid">
             <div class="card">
               <div class="card-header"><span class="card-title"><i data-lucide="mail"></i> Solicitudes Pendientes</span></div>
               <div class="card-body" id="pending-requests-preview"></div>
@@ -250,8 +253,60 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <!-- Modal Perfil Estudiante -->
+  <div class="modal-overlay" id="modal-perfil-estudiante">
+    <div class="modal" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Perfil del Estudiante</h3>
+        <button class="modal-close" onclick="closeModal('modal-perfil-estudiante')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <div class="modal-body" style="text-align: center;">
+        <div id="perfil-estudiante-avatar" style="margin-bottom: 1rem;"></div>
+        <h3 id="perfil-estudiante-nombre" style="margin-bottom: 0.25rem;">Cargando...</h3>
+        <div id="perfil-estudiante-badges" style="margin-bottom: 1.5rem;"></div>
+        <div style="text-align: left; background: var(--gray-50); padding: 1rem; border-radius: var(--radius); font-size: 0.9rem;">
+          <p style="margin-bottom: 0.5rem;"><strong>Cédula:</strong> <span id="perfil-estudiante-cedula">-</span></p>
+          <p style="margin-bottom: 0.5rem;"><strong>Disponibilidad:</strong> <span id="perfil-estudiante-disponibilidad">-</span></p>
+          <p style="margin-bottom: 0;"><strong>Tratamientos de interés:</strong></p>
+          <div id="perfil-estudiante-tratamientos" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">-</div>
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Calificar Estudiante -->
+  <div class="modal-overlay" id="modal-calificar">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Calificar Estudiante</h3>
+        <button class="modal-close" onclick="closeModal('modal-calificar')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleCalificar(event)">
+        <input type="hidden" id="calificar-student-id">
+        <div class="form-group">
+          <label class="form-label">Puntuación (1-5 estrellas)</label>
+          <select class="form-select" id="calificar-puntuacion" required>
+            <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
+            <option value="4">⭐⭐⭐⭐ Muy Bueno</option>
+            <option value="3">⭐⭐⭐ Bueno</option>
+            <option value="2">⭐⭐ Regular</option>
+            <option value="1">⭐ Deficiente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comentario (opcional)</label>
+          <textarea class="form-textarea" id="calificar-comentario" placeholder="Deje un comentario sobre la atención..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
+
+  <script src="/js/libs/supabase-js.js"></script>
+  <script src="/js/libs/lucide.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>

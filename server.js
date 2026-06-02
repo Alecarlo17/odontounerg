@@ -17,6 +17,11 @@ const appointmentRoutes = require('./routes/appointmentRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const reportRoutes = require('./routes/reportRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const ratingRoutes = require('./routes/ratingRoutes');
 
 // Inicializar la aplicación Express
 const app = express();
@@ -100,6 +105,39 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/profiles', profileRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/ratings', ratingRoutes);
+
+// Ruta offline para estudiantes
+app.get('/api/students/available', async (req, res) => {
+  const db = require('./config/database');
+  try {
+    let sql = `
+      SELECT p.id as profile_id, p.*, stu.* 
+      FROM profiles p 
+      INNER JOIN students stu ON p.id = stu.user_id 
+      WHERE p.role = 'student' AND p.disponibilidad = 'disponible'
+    `;
+    const data = await db.querySQLite(sql);
+    const formatted = data.map(row => {
+      return {
+        id: row.profile_id,
+        full_name: row.full_name,
+        role: row.role,
+        disponibilidad: row.disponibilidad,
+        avatar_url: row.avatar_url || null,
+        students: row
+      };
+    });
+    return res.json({ success: true, data: formatted });
+  } catch (e) {
+    console.error(e);
+    return res.json({ success: false, data: [] });
+  }
+});
 
 /* =============================================
    MANEJO DE ERRORES

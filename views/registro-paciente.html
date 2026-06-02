@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Registro de Paciente - Plataforma Odontológica UNERG">
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
   <title>Registro de Paciente - OdontoUNERG</title>
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/auth.css">
@@ -13,8 +14,7 @@
   <div class="auth-wrapper">
     <div class="auth-brand">
       <div class="auth-brand-logo">
-        <div class="logo-icon"><i data-lucide="heart-pulse" style="width:28px;height:28px;"></i></div>
-        OdontoUNERG
+        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
       </div>
       <h1 class="auth-brand-title">Registro de Paciente</h1>
       <p class="auth-brand-subtitle">
@@ -44,21 +44,28 @@
         </div>
 
         <form id="register-patient-form" onsubmit="handleRegisterPatient(event)">
+          <!-- Nombre -->
           <div class="form-group">
             <label class="form-label" for="reg-name">Nombre Completo *</label>
             <input type="text" id="reg-name" class="form-input" placeholder="Ej: María García" required>
+            <span class="form-error" id="reg-name-error"></span>
           </div>
 
+          <!-- Cédula -->
           <div class="form-group">
             <label class="form-label" for="reg-cedula">Cédula *</label>
             <input type="text" id="reg-cedula" class="form-input" placeholder="Ej: 12345678" maxlength="8" required>
+            <span class="form-error" id="reg-cedula-error"></span>
           </div>
 
+          <!-- Correo -->
           <div class="form-group">
             <label class="form-label" for="reg-email">Correo Electrónico *</label>
             <input type="email" id="reg-email" class="form-input" placeholder="correo@ejemplo.com" required>
+            <span class="form-error" id="reg-email-error"></span>
           </div>
 
+          <!-- Edad y Teléfono en fila -->
           <div style="display: flex; gap: 0.75rem;">
             <div class="form-group" style="flex:1">
               <label class="form-label" for="reg-age">Edad</label>
@@ -70,11 +77,13 @@
             </div>
           </div>
 
+          <!-- Dirección -->
           <div class="form-group">
             <label class="form-label" for="reg-direccion">Dirección</label>
             <input type="text" id="reg-direccion" class="form-input" placeholder="Ciudad, Estado">
           </div>
 
+          <!-- Problema odontológico -->
           <div class="form-group">
             <label class="form-label" for="reg-problema">Problema Odontológico Principal *</label>
             <select id="reg-problema" class="form-select" required>
@@ -89,13 +98,16 @@
               <option value="Periodoncia">Periodoncia</option>
               <option value="Otro">Otro</option>
             </select>
+            <span class="form-error" id="reg-problema-error"></span>
           </div>
 
+          <!-- Antecedentes médicos -->
           <div class="form-group">
             <label class="form-label" for="reg-antecedentes">Antecedentes Médicos</label>
             <textarea id="reg-antecedentes" class="form-textarea" placeholder="Describa si tiene alguna condición médica, alergias, medicamentos, etc." rows="3"></textarea>
           </div>
 
+          <!-- Foto -->
           <div class="form-group">
             <label class="form-label">Foto de Perfil (Opcional)</label>
             <div class="photo-upload" onclick="document.getElementById('reg-photo').click()">
@@ -106,21 +118,25 @@
             <input type="file" id="reg-photo" accept="image/*" style="display:none" onchange="previewPhoto(this)">
           </div>
 
+          <!-- Contraseña -->
           <div class="form-group">
             <label class="form-label" for="reg-password">Contraseña *</label>
             <div class="input-with-icon">
               <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
-              <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 6 caracteres" minlength="6" required>
+              <input type="password" id="reg-password" class="form-input" placeholder="Mínimo 8 caracteres" minlength="8" required>
               <button type="button" class="password-toggle" onclick="togglePassword('reg-password', this)"><i data-lucide="eye" style="width:18px;height:18px;"></i></button>
             </div>
+            <span class="form-error" id="reg-password-error"></span>
           </div>
 
+          <!-- Confirmar contraseña -->
           <div class="form-group">
             <label class="form-label" for="reg-confirm-password">Confirmar Contraseña *</label>
             <div class="input-with-icon">
               <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
               <input type="password" id="reg-confirm-password" class="form-input" placeholder="Repita la contraseña" required>
             </div>
+            <span class="form-error" id="reg-confirm-password-error"></span>
           </div>
 
           <button type="submit" class="btn btn-primary btn-block btn-lg">
@@ -136,14 +152,17 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
+  <script src="/js/libs/lucide.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
 
+    // ============================================
+    // PREVISUALIZACIÓN DE FOTO
+    // ============================================
     function previewPhoto(input) {
       if (input.files && input.files[0]) {
         const reader = new FileReader();
@@ -156,6 +175,9 @@
       }
     }
 
+    // ============================================
+    // TOGGLE DE CONTRASEÑA (ver/ocultar)
+    // ============================================
     function togglePassword(inputId, btn) {
       const input = document.getElementById(inputId);
       const icon = btn.querySelector('[data-lucide]');
@@ -168,20 +190,160 @@
       }
     }
 
+    // ============================================
+    // VALIDACIONES VISUALES EN TIEMPO REAL
+    // ============================================
+    function setFieldError(fieldId, message) {
+      const field = document.getElementById(fieldId);
+      const errorEl = document.getElementById(`${fieldId}-error`);
+      if (!field) return;
+      if (message) {
+        field.classList.add('error');
+        field.classList.remove('success');
+        if (errorEl) { errorEl.textContent = message; errorEl.classList.add('visible'); }
+      } else {
+        field.classList.remove('error');
+        field.classList.add('success');
+        if (errorEl) { errorEl.textContent = ''; errorEl.classList.remove('visible'); }
+      }
+    }
+
+    // --- Validación en tiempo real para cada campo ---
+
+    document.getElementById('reg-name').addEventListener('blur', function() {
+      if (!this.value.trim()) {
+        setFieldError('reg-name', 'El nombre completo es obligatorio.');
+      } else if (this.value.trim().length < 3) {
+        setFieldError('reg-name', 'El nombre debe tener al menos 3 caracteres.');
+      } else {
+        setFieldError('reg-name', '');
+      }
+    });
+
+    document.getElementById('reg-cedula').addEventListener('input', function() {
+      const val = this.value.replace(/\D/g, ''); // Solo dígitos
+      this.value = val;
+      if (val.length > 0 && (val.length < 7 || val.length > 8)) {
+        setFieldError('reg-cedula', 'La cédula debe tener 7 u 8 dígitos.');
+      } else if (val.length >= 7) {
+        setFieldError('reg-cedula', '');
+      }
+    });
+
+    document.getElementById('reg-email').addEventListener('blur', function() {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!this.value.trim()) {
+        setFieldError('reg-email', 'El correo electrónico es obligatorio.');
+      } else if (!emailRegex.test(this.value.trim())) {
+        setFieldError('reg-email', 'El correo electrónico no es válido. Ejemplo: nombre@correo.com');
+      } else {
+        setFieldError('reg-email', '');
+      }
+    });
+
+    document.getElementById('reg-password').addEventListener('input', function() {
+      if (this.value.length > 0 && this.value.length < 8) {
+        setFieldError('reg-password', 'La contraseña debe tener mínimo 8 caracteres.');
+      } else if (this.value.length >= 8) {
+        setFieldError('reg-password', '');
+      }
+      const confirm = document.getElementById('reg-confirm-password');
+      if (confirm.value.length > 0) {
+        if (confirm.value !== this.value) {
+          setFieldError('reg-confirm-password', 'Las contraseñas no coinciden.');
+        } else {
+          setFieldError('reg-confirm-password', '');
+        }
+      }
+    });
+
+    document.getElementById('reg-confirm-password').addEventListener('input', function() {
+      const pass = document.getElementById('reg-password').value;
+      if (this.value && this.value !== pass) {
+        setFieldError('reg-confirm-password', 'Las contraseñas no coinciden.');
+      } else if (this.value && this.value === pass) {
+        setFieldError('reg-confirm-password', '');
+      }
+    });
+
+    document.getElementById('reg-problema').addEventListener('change', function() {
+      if (!this.value) {
+        setFieldError('reg-problema', 'Debe seleccionar un problema odontológico.');
+      } else {
+        setFieldError('reg-problema', '');
+      }
+    });
+
+    // ============================================
+    // ENVÍO DEL FORMULARIO CON VALIDACIÓN COMPLETA
+    // ============================================
     async function handleRegisterPatient(event) {
       event.preventDefault();
+      let hasError = false;
+
+      // Validar nombre
+      const name = document.getElementById('reg-name').value.trim();
+      if (!name || name.length < 3) {
+        setFieldError('reg-name', 'El nombre completo es obligatorio (mínimo 3 caracteres).');
+        hasError = true;
+      }
+
+      // Validar cédula
+      const cedula = document.getElementById('reg-cedula').value.trim();
+      if (!/^\d{7,8}$/.test(cedula)) {
+        setFieldError('reg-cedula', 'La cédula debe tener 7 u 8 dígitos numéricos.');
+        hasError = true;
+      }
+
+      // Validar correo
+      const email = document.getElementById('reg-email').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setFieldError('reg-email', 'El correo electrónico no es válido.');
+        hasError = true;
+      }
+
+      // Validar contraseña
+      const password = document.getElementById('reg-password').value;
+      if (password.length < 8) {
+        setFieldError('reg-password', 'La contraseña debe tener mínimo 8 caracteres.');
+        hasError = true;
+      }
+
+      // Validar confirmación de contraseña
+      const confirmPassword = document.getElementById('reg-confirm-password').value;
+      if (password !== confirmPassword) {
+        setFieldError('reg-confirm-password', 'Las contraseñas no coinciden.');
+        hasError = true;
+      }
+
+      // Validar problema odontológico
+      const problema = document.getElementById('reg-problema').value;
+      if (!problema) {
+        setFieldError('reg-problema', 'Debe completar este campo.');
+        hasError = true;
+      }
+
+      // Si hay errores, detener el envío y hacer scroll al primer error
+      if (hasError) {
+        const firstError = document.querySelector('.form-input.error, .form-select.error');
+        if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      // Construir objeto de datos para enviar
       const formData = {
-        fullName: document.getElementById('reg-name').value.trim(),
-        cedula: document.getElementById('reg-cedula').value.trim(),
-        email: document.getElementById('reg-email').value.trim(),
+        fullName: name,
+        cedula: cedula,
+        email: email,
         age: document.getElementById('reg-age').value,
         phone: document.getElementById('reg-phone').value.trim(),
         direccion: document.getElementById('reg-direccion').value.trim(),
-        consultationReason: document.getElementById('reg-problema').value,
+        consultationReason: problema,
         medicalHistory: document.getElementById('reg-antecedentes').value.trim(),
-        password: document.getElementById('reg-password').value,
-        confirmPassword: document.getElementById('reg-confirm-password').value
+        password: password,
+        confirmPassword: confirmPassword
       };
+
       await registerPatient(formData);
     }
   </script>

@@ -74,7 +74,7 @@
         <!-- INICIO -->
         <section id="section-inicio">
           <div class="stats-grid" id="stats-grid"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;" id="inicio-grid">
+          <div class="inicio-grid" id="inicio-grid">
             <div class="card">
               <div class="card-header"><span class="card-title">📨 Solicitudes Pendientes</span></div>
               <div class="card-body" id="pending-requests-preview"></div>
@@ -221,7 +221,10 @@
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Overlay para cerrar el sidebar en móvil al tocar fuera -->
+  <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
+
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/utils.js"></script>
   <script src="../js/auth.js"></script>

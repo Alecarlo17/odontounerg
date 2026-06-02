@@ -1,84 +1,67 @@
 /* =============================================
-   NOTIFICACIONES.JS
-   Sistema de notificaciones simples
+   NOTIFICACIONES.JS (MVC / Offline)
+   Sistema de notificaciones locales
    ============================================= */
 
 /**
  * Cargar notificaciones del usuario actual
- * @param {string} userId
- * @returns {Array}
  */
 async function loadNotifications(userId) {
-  const { data, error } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  return data || [];
+  try {
+    const res = await fetch(`/api/notifications/${userId}`);
+    const json = await res.json();
+    return json.data || [];
+  } catch(e) {
+    return [];
+  }
 }
 
 /**
  * Contar notificaciones no leídas
- * @param {string} userId
- * @returns {number}
  */
 async function countUnreadNotifications(userId) {
-  const { count } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('leida', false);
-
-  return count || 0;
+  try {
+    const res = await fetch(`/api/notifications/${userId}/count`);
+    const json = await res.json();
+    return json.count || 0;
+  } catch(e) {
+    return 0;
+  }
 }
 
 /**
  * Marcar notificación como leída
- * @param {string} notificationId
  */
 async function markNotificationRead(notificationId) {
-  await supabase
-    .from('notifications')
-    .update({ leida: true })
-    .eq('id', notificationId);
+  try {
+    await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
+  } catch(e) {}
 }
 
 /**
  * Marcar todas como leídas
- * @param {string} userId
  */
 async function markAllNotificationsRead(userId) {
-  await supabase
-    .from('notifications')
-    .update({ leida: true })
-    .eq('user_id', userId)
-    .eq('leida', false);
+  try {
+    await fetch(`/api/notifications/${userId}/read-all`, { method: 'PUT' });
+  } catch(e) {}
 }
 
 /**
  * Crear una notificación
- * @param {string} userId - ID del destinatario
- * @param {string} tipo - Tipo de notificación
- * @param {string} titulo - Título
- * @param {string} mensaje - Mensaje
- * @param {string|null} referenciaId - ID de referencia
  */
 async function createNotification(userId, tipo, titulo, mensaje, referenciaId = null) {
-  await supabase.from('notifications').insert({
-    user_id: userId,
-    tipo,
-    titulo,
-    mensaje,
-    referencia_id: referenciaId
-  });
+  try {
+    await fetch('/api/notifications', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, tipo, titulo, mensaje, referenciaId })
+    });
+  } catch(e) {}
 }
 
 /**
  * Renderizar panel de notificaciones
- * @param {Array} notifications
- * @returns {string} HTML
  */
 function renderNotificationsPanel(notifications) {
   if (!notifications || notifications.length === 0) {
@@ -93,7 +76,6 @@ function renderNotificationsPanel(notifications) {
 
   const icons = {
     solicitud: '<i data-lucide="mail" style="width:20px;height:20px;"></i>',
-
     aceptada: '✅',
     rechazada: '❌',
     mensaje: '<i data-lucide="message-circle" style="width:20px;height:20px;"></i>',
@@ -121,20 +103,24 @@ function renderNotificationsPanel(notifications) {
 }
 
 /**
- * Inicializar listener de notificaciones en tiempo real
- * @param {string} userId
- * @param {Function} callback
+ * Inicializar listener de notificaciones locales (Polling)
  */
 function subscribeToNotifications(userId, callback) {
-  supabase
-    .channel('notifications-' + userId)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'notifications',
-      filter: `user_id=eq.${userId}`
-    }, (payload) => {
-      callback(payload.new);
-    })
-    .subscribe();
+  // En modo offline puro o local, usamos short polling.
+  // Revisamos si hay notificaciones nuevas cada 5 segundos.
+  let lastCheckedTime = new Date().toISOString();
+
+  setInterval(async () => {
+    try {
+      const res = await fetch(`/api/notifications/${userId}`);
+      const json = await res.json();
+      const notifs = json.data || [];
+      
+      const nuevas = notifs.filter(n => n.created_at > lastCheckedTime);
+      if (nuevas.length > 0) {
+        lastCheckedTime = nuevas[0].created_at; // actualizar último check
+        nuevas.forEach(n => callback(n));
+      }
+    } catch(e) {}
+  }, 5000);
 }

@@ -4,7 +4,7 @@
    ============================================= */
 
 let currentUser = null;
-let currentConversationId = null;
+let allStudents = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   currentUser = await requireAuth();
@@ -43,22 +43,20 @@ async function loadDashboardData() {
 
 async function loadStats() {
   const userId = currentUser.user.id;
-  const { count: pendingReqs } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'pending');
-  const { count: acceptedReqs } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).in('status', ['accepted', 'active']);
-
-  const { data: myReqs } = await supabase.from('requests').select('id').eq('patient_id', userId);
-  let citasCount = 0;
-  if (myReqs && myReqs.length > 0) {
-    const { count } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).in('request_id', myReqs.map(r => r.id)).in('status', ['proposed', 'confirmed']);
-    citasCount = count || 0;
+  try {
+    const res = await fetch(`/api/dashboard/patient/${userId}`);
+    const json = await res.json();
+    const stats = json.data || { pendingRequests: 0, acceptedRequests: 0, activeAppointments: 0 };
+    
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests}</div></div></div>
+      <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes Asignados</div><div class="stat-value">${stats.acceptedRequests}</div></div></div>
+      <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${stats.activeAppointments}</div></div></div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (e) {
+    console.error('Error loading stats:', e);
   }
-
-  document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${pendingReqs || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes Asignados</div><div class="stat-value">${acceptedReqs || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${citasCount}</div></div></div>
-  `;
-  if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 async function loadPendingRequestsPreview() {
@@ -138,6 +136,7 @@ function showSection(sectionName) {
 
 async function loadStudentsList() {
   const students = await getAvailableStudents();
+  allStudents = students;
   const container = document.getElementById('students-grid');
   if (students.length === 0) {
     container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i data-lucide="graduation-cap"></i></div><p class="empty-state-title">No hay estudiantes disponibles</p></div>';
@@ -151,7 +150,7 @@ async function loadStudentsList() {
           ${s.avatar_url ? `<img src="${s.avatar_url}" class="patient-card-avatar">` : `<span class="avatar avatar-placeholder" style="width:48px;height:48px">${getInitials(s.full_name)}</span>`}
           <div>
             <div class="patient-card-name">${escapeHTML(s.full_name)}</div>
-            <div class="patient-card-meta">${student?.section ? 'Sección ' + student.section : ''} ${student?.academic_year ? '· ' + student.academic_year : ''}</div>
+            <div class="patient-card-meta">${student?.section ? student.section : ''} ${student?.academic_year ? '· ' + student.academic_year : ''}</div>
           </div>
         </div>
         <div class="patient-card-body">
@@ -159,6 +158,7 @@ async function loadStudentsList() {
         </div>
         <div class="patient-card-footer">
           <button class="btn btn-primary btn-sm" onclick="handleSendRequestToStudent('${s.id}')">Enviar Solicitud</button>
+          <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${s.id}')">Ver Perfil</button>
         </div>
       </div>
     `;
@@ -177,8 +177,8 @@ function filterStudentsList() {
 async function handleSendRequestToStudent(studentId) {
   const ok = await confirmAction('Enviar Solicitud', '¿Desea enviar una solicitud a este estudiante?');
   if (!ok) return;
-  // En este caso el paciente envía al estudiante, invertimos los roles
-  const success = await sendRequest(studentId, currentUser.user.id);
+  // En este caso el paciente envía al estudiante, agregamos prefijo
+  const success = await sendRequest(studentId, currentUser.user.id, '[FromPatient]');
   if (success) loadStudentsList();
 }
 
@@ -194,11 +194,19 @@ async function loadPatientRequestsList(status = null) {
     const statusInfo = getStatusInfo(req.status);
     const name = req.student?.full_name || 'Estudiante';
     let actions = '';
-    if (req.status === 'pending') {
+    let messageStr = req.message || '';
+    const isFromPatient = messageStr.startsWith('[FromPatient]');
+    if (isFromPatient) messageStr = messageStr.replace('[FromPatient]', '').trim();
+    const isFromStudent = messageStr.startsWith('[FromStudent]');
+    if (isFromStudent) messageStr = messageStr.replace('[FromStudent]', '').trim();
+
+    if (req.status === 'pending' && !isFromPatient) {
       actions = `
         <button class="btn btn-success btn-sm" onclick="handleAcceptRequest('${req.id}')">Aceptar</button>
         <button class="btn btn-danger btn-sm" onclick="handleRejectRequest('${req.id}')">Rechazar</button>
       `;
+    } else if (req.status === 'pending' && isFromPatient) {
+      actions = `<span class="badge badge-warning">Enviada</span>`;
     }
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
@@ -209,7 +217,7 @@ async function loadPatientRequestsList(status = null) {
               <strong>${escapeHTML(name)}</strong>
               <span class="badge ${statusInfo.class}">${statusInfo.text}</span>
             </div>
-            <p style="font-size:0.85rem;color:var(--text-secondary)">${req.message ? escapeHTML(req.message) : 'Sin mensaje'}</p>
+            <p style="font-size:0.85rem;color:var(--text-secondary)">${messageStr ? escapeHTML(messageStr) : 'Sin mensaje'}</p>
             <p style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(req.created_at)}</p>
           </div>
           <div style="display:flex;gap:0.35rem">${actions}</div>
@@ -324,16 +332,24 @@ async function handleChatImageUpload(input) {
 }
 
 async function loadTreatmentsHistory() {
-  const { data: treatments } = await supabase.from('treatments').select('*, student:student_id(full_name)').eq('patient_id', currentUser.user.id).order('created_at', { ascending: false });
-  const container = document.getElementById('treatments-list');
-  if (!treatments || treatments.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p></div>';
-    return;
+  try {
+    const res = await fetch(`/api/dashboard/treatments/patient/${currentUser.user.id}`);
+    const json = await res.json();
+    const treatments = json.data || [];
+    
+    const container = document.getElementById('treatments-list');
+    if (!treatments || treatments.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p></div>';
+      return;
+    }
+    container.innerHTML = `<div class="table-wrapper"><table class="data-table"><thead><tr><th>Estudiante</th><th>Tratamiento</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${treatments.map(t => {
+      const est = { pendiente: { t: 'Pendiente', c: 'badge-warning' }, en_proceso: { t: 'En proceso', c: 'badge-primary' }, finalizado: { t: 'Finalizado', c: 'badge-success' } }[t.estado] || { t: t.estado, c: 'badge-gray' };
+      const btn = t.estado === 'finalizado' ? `<button class="btn btn-sm btn-outline" onclick="openCalificarModal('${t.student_id}')">Calificar</button>` : '';
+      return `<tr><td>${escapeHTML(t.other_name || '')}</td><td>${escapeHTML(t.tratamiento)}</td><td>${formatDate(t.fecha)}</td><td><span class="badge ${est.c}">${est.t}</span></td><td>${btn}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  } catch(e) {
+    console.error(e);
   }
-  container.innerHTML = `<div class="table-wrapper"><table class="data-table"><thead><tr><th>Estudiante</th><th>Tratamiento</th><th>Fecha</th><th>Estado</th></tr></thead><tbody>${treatments.map(t => {
-    const est = { pendiente: { t: 'Pendiente', c: 'badge-warning' }, en_proceso: { t: 'En proceso', c: 'badge-primary' }, finalizado: { t: 'Finalizado', c: 'badge-success' } }[t.estado] || { t: t.estado, c: 'badge-gray' };
-    return `<tr><td>${escapeHTML(t.student?.full_name || '')}</td><td>${escapeHTML(t.tratamiento)}</td><td>${formatDate(t.fecha)}</td><td><span class="badge ${est.c}">${est.t}</span></td></tr>`;
-  }).join('')}</tbody></table></div>`;
 }
 
 async function loadProfileData() {
@@ -371,4 +387,89 @@ async function loadNotificationsList() {
 
 async function handleMarkAllRead() { await markAllNotificationsRead(currentUser.user.id); loadNotificationsList(); updateNotificationBadge(); }
 
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+function openCalificarModal(studentId) {
+  document.getElementById('calificar-student-id').value = studentId;
+  document.getElementById('modal-calificar').classList.add('active');
+}
+
+async function handleCalificar(event) {
+  event.preventDefault();
+  const studentId = document.getElementById('calificar-student-id').value;
+  const rating = document.getElementById('calificar-puntuacion').value;
+  const comment = document.getElementById('calificar-comentario').value;
+
+  if (!rating) return;
+  showLoading(true);
+
+  try {
+    const res = await fetch('/api/ratings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId,
+        patientId: currentUser.user.id,
+        rating: parseInt(rating),
+        comment
+      })
+    });
+    const json = await res.json();
+    showLoading(false);
+    if (!json.success) throw new Error(json.message);
+
+    showToast('Calificación enviada exitosamente', 'success');
+    closeModal('modal-calificar');
+    document.getElementById('calificar-comentario').value = '';
+  } catch (e) {
+    showLoading(false);
+    showToast(e.message || 'Error al enviar calificación', 'error');
+  }
+}
+
+function viewStudentProfile(studentId) {
+  const s = allStudents.find(st => st.id === studentId);
+  if (!s) {
+    showToast('No se encontró información del estudiante', 'error');
+    return;
+  }
+  const student = s.students || {};
+  const disponibilidad = s.disponibilidad || 'disponible';
+  const dispText = disponibilidad === 'disponible' ? 'Disponible' : disponibilidad === 'ocupado' ? 'Ocupado' : 'No disponible';
+  const dispClass = disponibilidad === 'disponible' ? 'badge-success' : disponibilidad === 'ocupado' ? 'badge-warning' : 'badge-error';
+
+  const avatarContainer = document.getElementById('perfil-estudiante-avatar');
+  if (s.avatar_url) {
+    avatarContainer.innerHTML = `<img src="${s.avatar_url}" class="avatar avatar-xl" alt="${escapeHTML(s.full_name)}">`;
+  } else {
+    avatarContainer.innerHTML = `<span class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(s.full_name)}</span>`;
+  }
+
+  document.getElementById('perfil-estudiante-nombre').textContent = escapeHTML(s.full_name);
+  
+  const badgesHtml = [];
+  if (student.academic_year) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.academic_year)}</span>`);
+  if (student.section) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.section)}</span>`);
+  
+  document.getElementById('perfil-estudiante-badges').innerHTML = badgesHtml.join(' ');
+  document.getElementById('perfil-estudiante-cedula').textContent = escapeHTML(student.student_id_card || 'No especificada');
+  document.getElementById('perfil-estudiante-disponibilidad').innerHTML = `<span class="badge ${dispClass}">${dispText}</span>`;
+  
+  let tratamientos = [];
+  try {
+    tratamientos = typeof student.treatments_needed === 'string' ? JSON.parse(student.treatments_needed) : (student.treatments_needed || []);
+  } catch (e) {
+    tratamientos = [];
+  }
+  const tratamientosContainer = document.getElementById('perfil-estudiante-tratamientos');
+  if (tratamientos.length > 0) {
+    tratamientosContainer.innerHTML = tratamientos.map(t => `<span class="badge badge-outline">${escapeHTML(t)}</span>`).join('');
+  } else {
+    tratamientosContainer.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No especificó</span>';
+  }
+
+  document.getElementById('modal-perfil-estudiante').classList.add('active');
+}
+
+// Helpers
+function closeModal(modalId) {
+  document.getElementById(modalId).classList.remove('active');
+}

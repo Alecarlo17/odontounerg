@@ -226,6 +226,7 @@ function showSection(sectionName) {
     solicitudes: ['Solicitudes', 'Gestionar solicitudes'],
     citas: ['Citas', 'Gestionar citas odontológicas'],
     chat: ['Chat', 'Mensajes en tiempo real'],
+    calificaciones: ['Calificaciones', 'Reputación y comentarios'],
     historial: ['Historial', 'Tratamientos realizados'],
     perfil: ['Mi Perfil', 'Editar información personal'],
     notificaciones: ['Notificaciones', 'Centro de notificaciones']
@@ -240,6 +241,7 @@ function showSection(sectionName) {
     case 'solicitudes': loadStudentRequestsList(); break;
     case 'citas': loadAppointmentsList(); break;
     case 'chat': loadChatConversations(); break;
+    case 'calificaciones': loadRatings(); break;
     case 'historial': loadTreatmentsHistory(); break;
     case 'perfil': loadProfileData(); break;
     case 'notificaciones': loadNotificationsList(); break;
@@ -366,6 +368,10 @@ async function loadStudentRequestsList(status = null) {
   container.innerHTML = requests.map(req => {
     const statusInfo = getStatusInfo(req.status);
     const name = req.patient?.full_name || 'Paciente';
+    let messageStr = req.message || 'Sin mensaje';
+    if (messageStr.startsWith('[FromStudent]')) {
+      messageStr = messageStr.replace('[FromStudent]', '').trim();
+    }
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
         <div class="card-body" style="display:flex;align-items:center;gap:1rem;">
@@ -375,7 +381,7 @@ async function loadStudentRequestsList(status = null) {
               <strong>${escapeHTML(name)}</strong>
               <span class="badge ${statusInfo.class}">${statusInfo.text}</span>
             </div>
-            <p style="font-size:0.85rem;color:var(--text-secondary);">${req.message ? escapeHTML(req.message) : 'Sin mensaje'}</p>
+            <p style="font-size:0.85rem;color:var(--text-secondary);">${escapeHTML(messageStr)}</p>
             <p style="font-size:0.75rem;color:var(--text-muted);">${timeAgo(req.created_at)}</p>
           </div>
         </div>
@@ -603,6 +609,9 @@ async function loadTreatmentsHistory() {
   }
 
   container.innerHTML = `
+    <div style="text-align:right;margin-bottom:1rem;">
+      <button class="btn btn-secondary btn-sm" onclick="handleDownloadTreatments()">Descargar Reporte</button>
+    </div>
     <div class="table-wrapper">
       <table class="data-table">
         <thead>
@@ -622,19 +631,93 @@ async function loadTreatmentsHistory() {
               finalizado: { text: 'Finalizado', class: 'badge-success' }
             }[t.estado] || { text: t.estado, class: 'badge-gray' };
             return `
-              <tr>
-                <td>${escapeHTML(t.patient?.full_name || '')}</td>
-                <td>${escapeHTML(t.tratamiento)}</td>
-                <td>${formatDate(t.fecha)}</td>
-                <td><span class="badge ${estadoInfo.class}">${estadoInfo.text}</span></td>
-                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;">${escapeHTML(t.observaciones || '-')}</td>
-              </tr>
-            `;
+                <tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:0.75rem;">
+                      <span class="avatar avatar-placeholder" style="width:32px;height:32px;font-size:0.8rem">${getInitials(t.patient?.full_name || 'Paciente')}</span>
+                      <span>${escapeHTML(t.patient?.full_name || 'Paciente')}</span>
+                    </div>
+                  </td>
+                  <td><strong>${escapeHTML(t.tratamiento)}</strong></td>
+                  <td>${new Date(t.fecha).toLocaleDateString('es-VE')}</td>
+                  <td><span class="badge ${estadoInfo.class}">${estadoInfo.text}</span></td>
+                  <td><span style="color:var(--text-secondary);font-size:0.85rem">${t.observaciones ? escapeHTML(t.observaciones) : '-'}</span></td>
+                </tr>
+              `;
           }).join('')}
         </tbody>
       </table>
     </div>
   `;
+}
+
+async function handleDownloadTreatments() {
+  showLoading(true);
+  try {
+    const res = await fetch(`/api/dashboard/treatments/student/${currentUser.user.id}`);
+    const json = await res.json();
+    const treatments = json.data || [];
+    if (treatments.length === 0) {
+      showToast('No hay tratamientos para exportar', 'warning');
+      showLoading(false);
+      return;
+    }
+    await generateTreatmentsReport(treatments, currentUser.profile.full_name);
+  } catch(e) {
+    showToast('Error al exportar tratamientos', 'error');
+  }
+  showLoading(false);
+}
+
+async function handleDownloadAppointments() {
+  showLoading(true);
+  try {
+    const appointments = await getAppointments(currentUser.user.id);
+    if (appointments.length === 0) {
+      showToast('No hay citas para exportar', 'warning');
+      showLoading(false);
+      return;
+    }
+    await generateAppointmentsReport(appointments, currentUser.profile.full_name);
+  } catch(e) {
+    showToast('Error al exportar citas', 'error');
+  }
+  showLoading(false);
+}
+
+async function loadRatings() {
+  try {
+    const res = await fetch(`/api/ratings/student/${currentUser.user.id}`);
+    const json = await res.json();
+    if (!json.success) return;
+
+    const { ratings, stats } = json.data;
+    
+    // Update badge
+    const avgBadge = document.getElementById('ratings-average-badge');
+    avgBadge.textContent = `⭐ ${parseFloat(stats.avg || 0).toFixed(1)} (${stats.count || 0})`;
+
+    const container = document.getElementById('ratings-list');
+    if (!ratings || ratings.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="star"></i></div><p class="empty-state-title">Sin calificaciones</p></div>';
+      return;
+    }
+
+    container.innerHTML = ratings.map(r => `
+      <div class="card" style="margin-bottom:1rem">
+        <div class="card-body">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem">
+            <strong>${escapeHTML(r.patient_name || 'Paciente')}</strong>
+            <span class="badge badge-primary">⭐ ${r.rating}</span>
+          </div>
+          <p style="color:var(--text-secondary); font-size:0.9rem">${r.comment ? escapeHTML(r.comment) : '<em>Sin comentario</em>'}</p>
+          <div style="margin-top:0.5rem; color:var(--text-muted); font-size:0.8rem">${new Date(r.created_at).toLocaleDateString('es-VE')}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    console.error('Error cargando calificaciones', e);
+  }
 }
 
 /**
@@ -708,9 +791,37 @@ async function handleMarkAllRead() {
   updateNotificationBadge();
 }
 
-function viewPatientProfile(patientId) {
-  // Simple: mostrar info en modal
-  showToast('Perfil del paciente', 'info');
+async function viewPatientProfile(patientId) {
+  try {
+    showLoading(true);
+    const res = await fetch(`/api/patients/${patientId}`);
+    const json = await res.json();
+    showLoading(false);
+    
+    if (json.success && json.data) {
+      const p = json.data;
+      document.getElementById('perfil-paciente-nombre').textContent = p.full_name;
+      document.getElementById('perfil-paciente-avatar').innerHTML = 
+        `<div class="avatar avatar-xl">${p.full_name.charAt(0).toUpperCase()}</div>`;
+      
+      const badgeClass = p.disponibilidad === 'disponible' ? 'badge-success' : 'badge-warning';
+      document.getElementById('perfil-paciente-badges').innerHTML = 
+        `<span class="badge ${badgeClass}">${p.disponibilidad || 'No especificada'}</span>
+         <span class="badge badge-primary">${p.patients?.age ? p.patients.age + ' años' : 'Edad no especificada'}</span>`;
+         
+      document.getElementById('perfil-paciente-direccion').textContent = p.patients?.address || p.patients?.direccion || 'No especificada';
+      document.getElementById('perfil-paciente-disponibilidad').textContent = p.disponibilidad || 'No especificada';
+      document.getElementById('perfil-paciente-tratamiento').textContent = p.patients?.consultation_reason || 'No especificado';
+      document.getElementById('perfil-paciente-antecedentes').textContent = p.patients?.medical_history || 'Ninguno';
+      
+      document.getElementById('modal-perfil-paciente').classList.add('active');
+    } else {
+      showToast('Error al cargar perfil', 'error');
+    }
+  } catch(e) {
+    showLoading(false);
+    showToast('Error de red', 'error');
+  }
 }
 
 // Funciones auxiliares
@@ -720,4 +831,72 @@ function closeModal(modalId) {
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
+}
+
+async function openRegistrarTratamientoModal() {
+  const select = document.getElementById('tratamiento-patient-id');
+  select.innerHTML = '<option value="">Cargando pacientes...</option>';
+  document.getElementById('modal-registrar-tratamiento').classList.add('active');
+
+  try {
+    // Buscar los pacientes del estudiante (solicitudes aceptadas o citas)
+    const allReqs = await getStudentRequests(currentUser.user.id, null);
+    const validReqs = allReqs.filter(r => r.status === 'accepted' || r.status === 'active');
+    
+    // Obtener pacientes únicos
+    const uniquePatients = [];
+    const patientIds = new Set();
+    for (const r of validReqs) {
+      if (!patientIds.has(r.patient_id)) {
+        patientIds.add(r.patient_id);
+        uniquePatients.push({ id: r.patient_id, name: r.patient?.full_name || 'Paciente' });
+      }
+    }
+
+    if (uniquePatients.length === 0) {
+      select.innerHTML = '<option value="">No tienes pacientes asignados actualmente</option>';
+    } else {
+      select.innerHTML = '<option value="">Seleccione un paciente</option>' + 
+        uniquePatients.map(p => `<option value="${p.id}">${escapeHTML(p.name)}</option>`).join('');
+    }
+  } catch (e) {
+    select.innerHTML = '<option value="">Error al cargar pacientes</option>';
+  }
+}
+
+async function handleCreateTreatment(event) {
+  event.preventDefault();
+  const patientId = document.getElementById('tratamiento-patient-id').value;
+  const tratamiento = document.getElementById('tratamiento-nombre').value;
+  const estado = document.getElementById('tratamiento-estado').value;
+  const observaciones = document.getElementById('tratamiento-observaciones').value;
+
+  if (!patientId || !tratamiento || !estado) {
+    showToast('Por favor, complete todos los campos', 'warning');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/dashboard/treatments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        studentId: currentUser.user.id,
+        patientId,
+        tratamiento,
+        estado,
+        observaciones
+      })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    
+    showToast('Tratamiento registrado con éxito', 'success');
+    closeModal('modal-registrar-tratamiento');
+    document.getElementById('tratamiento-nombre').value = '';
+    document.getElementById('tratamiento-observaciones').value = '';
+    loadTreatmentsHistory();
+  } catch(e) {
+    showToast(e.message || 'Error al registrar', 'error');
+  }
 }

@@ -4,136 +4,103 @@
 
 /**
  * Crear nueva cita
- * @param {object} citaData
  */
 async function createAppointment(citaData) {
-  const { error } = await supabase.from('appointments').insert({
-    request_id: citaData.requestId,
-    proposed_by: citaData.proposedBy,
-    date: citaData.date,
-    duration_minutes: citaData.duration || 60,
-    location: citaData.location || null,
-    notes: citaData.notes || null,
-    status: 'proposed'
-  });
-
-  if (error) {
-    showToast('Error al crear cita', 'error');
+  try {
+    const res = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestId: citaData.requestId,
+        proposedBy: citaData.proposedBy,
+        date: citaData.date,
+        duration: citaData.duration || 60,
+        location: citaData.location || null,
+        notes: citaData.notes || null
+      })
+    });
+    const json = await res.json();
+    if (!json.success) {
+      showToast(json.message || 'Error al crear cita', 'error');
+      return false;
+    }
+    showToast('Cita creada exitosamente', 'success');
+    return true;
+  } catch (error) {
+    showToast('Error de conexión', 'error');
     return false;
   }
-
-  // Notificar al otro usuario
-  const { data: request } = await supabase
-    .from('requests')
-    .select('student_id, patient_id')
-    .eq('id', citaData.requestId)
-    .single();
-
-  if (request) {
-    const otherUserId = citaData.proposedBy === request.student_id 
-      ? request.patient_id 
-      : request.student_id;
-    
-    await createNotification(
-      otherUserId,
-      'cita',
-      'Nueva cita propuesta',
-      `Se ha propuesto una cita para el ${formatDate(citaData.date)}`
-    );
-  }
-
-  showToast('Cita creada exitosamente', 'success');
-  return true;
 }
 
 /**
  * Obtener citas del usuario
- * @param {string} userId
- * @param {string} status - Filtrar por estado
  */
 async function getAppointments(userId, status = null) {
-  // Primero obtener requests del usuario
-  const { data: requests } = await supabase
-    .from('requests')
-    .select('id')
-    .or(`student_id.eq.${userId},patient_id.eq.${userId}`);
-
-  if (!requests || requests.length === 0) return [];
-
-  const requestIds = requests.map(r => r.id);
-
-  let query = supabase
-    .from('appointments')
-    .select(`
-      *,
-      request:request_id(
-        student_id,
-        patient_id,
-        student:student_id(id, full_name, avatar_url, email),
-        patient:patient_id(id, full_name, avatar_url, email)
-      )
-    `)
-    .in('request_id', requestIds)
-    .order('date', { ascending: true });
-
-  if (status) query = query.eq('status', status);
-
-  const { data } = await query;
-  return data || [];
+  try {
+    const url = status ? `/api/appointments/user/${userId}?status=${status}` : `/api/appointments/user/${userId}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json.data || [];
+  } catch (error) {
+    return [];
+  }
 }
 
 /**
  * Confirmar cita
- * @param {string} appointmentId
  */
 async function confirmAppointment(appointmentId) {
-  const { error } = await supabase
-    .from('appointments')
-    .update({ status: 'confirmed', updated_at: new Date().toISOString() })
-    .eq('id', appointmentId);
-
-  if (error) {
-    showToast('Error al confirmar cita', 'error');
+  try {
+    const res = await fetch(`/api/appointments/${appointmentId}/confirm`, { method: 'PUT' });
+    const json = await res.json();
+    if (!json.success) {
+      showToast(json.message || 'Error al confirmar cita', 'error');
+      return false;
+    }
+    showToast('Cita confirmada', 'success');
+    return true;
+  } catch (error) {
+    showToast('Error de conexión', 'error');
     return false;
   }
-  showToast('Cita confirmada', 'success');
-  return true;
 }
 
 /**
  * Cancelar cita
- * @param {string} appointmentId
  */
 async function cancelAppointment(appointmentId) {
-  const { error } = await supabase
-    .from('appointments')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('id', appointmentId);
-
-  if (error) {
-    showToast('Error al cancelar cita', 'error');
+  try {
+    const res = await fetch(`/api/appointments/${appointmentId}/cancel`, { method: 'PUT' });
+    const json = await res.json();
+    if (!json.success) {
+      showToast(json.message || 'Error al cancelar cita', 'error');
+      return false;
+    }
+    showToast('Cita cancelada', 'success');
+    return true;
+  } catch (error) {
+    showToast('Error de conexión', 'error');
     return false;
   }
-  showToast('Cita cancelada', 'success');
-  return true;
 }
 
 /**
  * Completar cita
- * @param {string} appointmentId
  */
 async function completeAppointment(appointmentId) {
-  const { error } = await supabase
-    .from('appointments')
-    .update({ status: 'completed', updated_at: new Date().toISOString() })
-    .eq('id', appointmentId);
-
-  if (error) {
-    showToast('Error al finalizar cita', 'error');
+  try {
+    const res = await fetch(`/api/appointments/${appointmentId}/complete`, { method: 'PUT' });
+    const json = await res.json();
+    if (!json.success) {
+      showToast(json.message || 'Error al finalizar cita', 'error');
+      return false;
+    }
+    showToast('Cita finalizada', 'success');
+    return true;
+  } catch (error) {
+    showToast('Error de conexión', 'error');
     return false;
   }
-  showToast('Cita finalizada', 'success');
-  return true;
 }
 
 /**

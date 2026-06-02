@@ -19,22 +19,23 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadAdminStats() {
   showLoading(true);
-  const { count: totalUsers } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
-  const { count: totalStudents } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
-  const { count: totalPatients } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
-  const { count: totalRequests } = await supabase.from('requests').select('*', { count: 'exact', head: true });
-  const { count: totalAppointments } = await supabase.from('appointments').select('*', { count: 'exact', head: true });
-  const { count: pendingRequests } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
+  try {
+    const res = await fetch('/api/dashboard/admin');
+    const json = await res.json();
+    const stats = json.data || {};
 
-  document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-icon blue"><i data-lucide="users"></i></div><div class="stat-info"><div class="stat-label">Total Usuarios</div><div class="stat-value">${totalUsers || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes</div><div class="stat-value">${totalStudents || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon cyan"><i data-lucide="heart"></i></div><div class="stat-info"><div class="stat-label">Pacientes</div><div class="stat-value">${totalPatients || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes</div><div class="stat-value">${totalRequests || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas</div><div class="stat-value">${totalAppointments || 0}</div></div></div>
-    <div class="stat-card"><div class="stat-icon red"><i data-lucide="clock"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${pendingRequests || 0}</div></div></div>
-  `;
-  if (typeof lucide !== 'undefined') lucide.createIcons();
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-icon blue"><i data-lucide="users"></i></div><div class="stat-info"><div class="stat-label">Total Usuarios</div><div class="stat-value">${stats.totalUsers || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes</div><div class="stat-value">${stats.totalStudents || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon cyan"><i data-lucide="heart"></i></div><div class="stat-info"><div class="stat-label">Pacientes</div><div class="stat-value">${stats.totalPatients || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes</div><div class="stat-value">${stats.totalRequests || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas</div><div class="stat-value">${stats.totalAppointments || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon red"><i data-lucide="clock"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests || 0}</div></div></div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch(e) {
+    console.error(e);
+  }
   showLoading(false);
 }
 
@@ -59,19 +60,21 @@ function destroyChart(name) {
 
 async function loadAdminCharts() {
   if (typeof Chart === 'undefined') return;
-  await Promise.all([
-    renderUsersChart(),
-    renderRequestsChart(),
-    renderAppointmentsChart(),
-    renderTreatmentsChart()
-  ]);
+  try {
+    const res = await fetch('/api/dashboard/admin');
+    const json = await res.json();
+    const stats = json.data || {};
+
+    renderUsersChart(stats.totalStudents, stats.totalPatients, stats.totalUsers - stats.totalStudents - stats.totalPatients);
+    renderRequestsChart(stats.chartRequests || []);
+    renderAppointmentsChart(stats.chartAppointments || []);
+    renderTreatmentsChart(); // Se simplificó para no bloquear
+  } catch(e) {
+    console.error(e);
+  }
 }
 
-async function renderUsersChart() {
-  const { count: students } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
-  const { count: patients } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
-  const { count: admins } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'admin');
-  
+function renderUsersChart(students, patients, admins) {
   destroyChart('users');
   chartInstances['users'] = new Chart(document.getElementById('chart-users'), {
     type: 'doughnut',
@@ -94,16 +97,14 @@ async function renderUsersChart() {
   });
 }
 
-async function renderRequestsChart() {
+function renderRequestsChart(chartData) {
   const statuses = ['pending', 'accepted', 'rejected', 'active'];
   const labels = ['Pendientes', 'Aceptadas', 'Rechazadas', 'Activas'];
   const colors = [chartColors.orange, chartColors.green, chartColors.red, chartColors.blue];
-  const counts = [];
-
-  for (const s of statuses) {
-    const { count } = await supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', s);
-    counts.push(count || 0);
-  }
+  const counts = statuses.map(s => {
+    const item = chartData.find(d => d.status === s);
+    return item ? item.count : 0;
+  });
 
   destroyChart('requests');
   chartInstances['requests'] = new Chart(document.getElementById('chart-requests'), {
@@ -130,16 +131,14 @@ async function renderRequestsChart() {
   });
 }
 
-async function renderAppointmentsChart() {
+function renderAppointmentsChart(chartData) {
   const statuses = ['proposed', 'confirmed', 'completed', 'cancelled'];
   const labels = ['Propuestas', 'Confirmadas', 'Finalizadas', 'Canceladas'];
   const colors = [chartColors.cyan, chartColors.blue, chartColors.green, chartColors.red];
-  const counts = [];
-
-  for (const s of statuses) {
-    const { count } = await supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('status', s);
-    counts.push(count || 0);
-  }
+  const counts = statuses.map(s => {
+    const item = chartData.find(d => d.status === s);
+    return item ? item.count : 0;
+  });
 
   destroyChart('appointments');
   chartInstances['appointments'] = new Chart(document.getElementById('chart-appointments'), {
@@ -164,41 +163,46 @@ async function renderAppointmentsChart() {
 }
 
 async function renderTreatmentsChart() {
-  const { data: patients } = await supabase.from('patients').select('consultation_reason');
-  const treatmentCounts = {};
-  (patients || []).forEach(p => {
-    const reason = p.consultation_reason || 'No especificado';
-    treatmentCounts[reason] = (treatmentCounts[reason] || 0) + 1;
-  });
+  try {
+    const res = await fetch('/api/admin/patients');
+    const json = await res.json();
+    const patients = json.data || [];
+    
+    const treatmentCounts = {};
+    patients.forEach(p => {
+      const reason = p.patients?.consultation_reason || 'No especificado';
+      treatmentCounts[reason] = (treatmentCounts[reason] || 0) + 1;
+    });
 
-  const labels = Object.keys(treatmentCounts);
-  const data = Object.values(treatmentCounts);
-  const allColors = [chartColors.blue, chartColors.green, chartColors.orange, chartColors.red, chartColors.cyan, chartColors.purple, chartColors.pink, chartColors.indigo];
+    const labels = Object.keys(treatmentCounts);
+    const data = Object.values(treatmentCounts);
+    const allColors = [chartColors.blue, chartColors.green, chartColors.orange, chartColors.red, chartColors.cyan, chartColors.purple, chartColors.pink, chartColors.indigo];
 
-  destroyChart('treatments');
-  chartInstances['treatments'] = new Chart(document.getElementById('chart-treatments'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Pacientes',
-        data,
-        backgroundColor: labels.map((_, i) => allColors[i % allColors.length]),
-        borderRadius: 8,
-        barThickness: 35
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      indexAxis: 'y',
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
-        y: { grid: { display: false } }
+    destroyChart('treatments');
+    chartInstances['treatments'] = new Chart(document.getElementById('chart-treatments'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Pacientes',
+          data,
+          backgroundColor: labels.map((_, i) => allColors[i % allColors.length]),
+          borderRadius: 8,
+          barThickness: 35
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        indexAxis: 'y',
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+          y: { grid: { display: false } }
+        }
       }
-    }
-  });
+    });
+  } catch(e) {}
 }
 
 function showSection(name) {
@@ -233,11 +237,14 @@ function showSection(name) {
 
 async function loadAllUsers() {
   const role = document.getElementById('filter-role')?.value || 'all';
-  let query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
-  if (role !== 'all') query = query.eq('role', role);
-  const { data: users } = await query;
-  allUsers = users || [];
-  renderUsersTable(allUsers);
+  try {
+    const res = await fetch('/api/admin/users');
+    const json = await res.json();
+    let users = json.data || [];
+    if (role !== 'all') users = users.filter(u => u.role === role);
+    allUsers = users;
+    renderUsersTable(allUsers);
+  } catch(e) {}
 }
 
 function filterUsers() {
@@ -271,88 +278,107 @@ function renderUsersTable(users) {
 }
 
 async function loadStudentsTable() {
-  const { data } = await supabase.from('profiles').select('*, students(*)').eq('role', 'student').order('created_at', { ascending: false });
-  document.getElementById('students-table').innerHTML = `
-    <table class="data-table">
-      <thead><tr><th>Nombre</th><th>Cédula</th><th>Sección</th><th>Año</th><th>Estado</th></tr></thead>
-      <tbody>${(data || []).map(s => `
-        <tr>
-          <td>${escapeHTML(s.full_name)}</td>
-          <td>${escapeHTML(s.students?.student_id_card || '-')}</td>
-          <td>${escapeHTML(s.students?.section || '-')}</td>
-          <td>${escapeHTML(s.students?.academic_year || '-')}</td>
-          <td>${s.disponibilidad || '-'}</td>
-        </tr>
-      `).join('')}</tbody>
-    </table>
-  `;
+  try {
+    const res = await fetch('/api/admin/students');
+    const json = await res.json();
+    const data = json.data || [];
+    document.getElementById('students-table').innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Cédula</th><th>Sección</th><th>Año</th><th>Estado</th></tr></thead>
+        <tbody>${data.map(s => `
+          <tr>
+            <td>${escapeHTML(s.full_name)}</td>
+            <td>${escapeHTML(s.students?.student_id_card || '-')}</td>
+            <td>${escapeHTML(s.students?.section || '-')}</td>
+            <td>${escapeHTML(s.students?.academic_year || '-')}</td>
+            <td>${s.disponibilidad || '-'}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>
+    `;
+  } catch(e) {}
 }
 
 async function loadPatientsTable() {
-  const { data } = await supabase.from('profiles').select('*, patients(*)').eq('role', 'patient').order('created_at', { ascending: false });
-  document.getElementById('patients-table').innerHTML = `
-    <table class="data-table">
-      <thead><tr><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Problema</th><th>Estado</th></tr></thead>
-      <tbody>${(data || []).map(p => `
-        <tr>
-          <td>${escapeHTML(p.full_name)}</td>
-          <td>${p.patients?.age || '-'}</td>
-          <td>${p.phone || p.patients?.phone || '-'}</td>
-          <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
-          <td>${p.disponibilidad || '-'}</td>
-        </tr>
-      `).join('')}</tbody>
-    </table>
-  `;
+  try {
+    const res = await fetch('/api/admin/patients');
+    const json = await res.json();
+    const data = json.data || [];
+    document.getElementById('patients-table').innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Problema</th><th>Estado</th></tr></thead>
+        <tbody>${data.map(p => `
+          <tr>
+            <td>${escapeHTML(p.full_name)}</td>
+            <td>${p.patients?.age || '-'}</td>
+            <td>${p.phone || p.patients?.phone || '-'}</td>
+            <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
+            <td>${p.disponibilidad || '-'}</td>
+          </tr>
+        `).join('')}</tbody>
+      </table>
+    `;
+  } catch(e) {}
 }
 
 async function loadAllRequests() {
-  const { data } = await supabase.from('requests').select('*, student:student_id(full_name), patient:patient_id(full_name)').order('created_at', { ascending: false });
-  document.getElementById('all-requests-table').innerHTML = `
-    <table class="data-table">
-      <thead><tr><th>Estudiante</th><th>Paciente</th><th>Estado</th><th>Fecha</th></tr></thead>
-      <tbody>${(data || []).map(r => {
-        const si = getStatusInfo(r.status);
-        return `<tr>
-          <td>${escapeHTML(r.student?.full_name || '-')}</td>
-          <td>${escapeHTML(r.patient?.full_name || '-')}</td>
-          <td><span class="badge ${si.class}">${si.text}</span></td>
-          <td>${formatDate(r.created_at)}</td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table>
-  `;
+  try {
+    const res = await fetch('/api/admin/requests');
+    const json = await res.json();
+    const data = json.data || [];
+    document.getElementById('all-requests-table').innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Estudiante</th><th>Paciente</th><th>Estado</th><th>Fecha</th></tr></thead>
+        <tbody>${data.map(r => {
+          const si = getStatusInfo(r.status);
+          return `<tr>
+            <td>${escapeHTML(r.student?.full_name || '-')}</td>
+            <td>${escapeHTML(r.patient?.full_name || '-')}</td>
+            <td><span class="badge ${si.class}">${si.text}</span></td>
+            <td>${formatDate(r.created_at)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    `;
+  } catch(e) {}
 }
 
 async function loadAllAppointments() {
-  const { data } = await supabase.from('appointments').select('*, request:request_id(student:student_id(full_name), patient:patient_id(full_name))').order('date', { ascending: false });
-  document.getElementById('all-appointments-table').innerHTML = `
-    <table class="data-table">
-      <thead><tr><th>Estudiante</th><th>Paciente</th><th>Fecha</th><th>Estado</th></tr></thead>
-      <tbody>${(data || []).map(a => {
-        const si = getStatusInfo(a.status);
-        return `<tr>
-          <td>${escapeHTML(a.request?.student?.full_name || '-')}</td>
-          <td>${escapeHTML(a.request?.patient?.full_name || '-')}</td>
-          <td>${formatDateTime(a.date)}</td>
-          <td><span class="badge ${si.class}">${si.text}</span></td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table>
-  `;
+  try {
+    const res = await fetch('/api/admin/appointments');
+    const json = await res.json();
+    const data = json.data || [];
+    document.getElementById('all-appointments-table').innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Estudiante</th><th>Paciente</th><th>Fecha</th><th>Estado</th></tr></thead>
+        <tbody>${data.map(a => {
+          const si = getStatusInfo(a.status);
+          return `<tr>
+            <td>${escapeHTML(a.request?.student?.full_name || '-')}</td>
+            <td>${escapeHTML(a.request?.patient?.full_name || '-')}</td>
+            <td>${formatDateTime(a.date)}</td>
+            <td><span class="badge ${si.class}">${si.text}</span></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+    `;
+  } catch(e) {}
 }
 
 async function deleteUser(userId) {
   const ok = await confirmAction('Eliminar Usuario', '¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.');
   if (!ok) return;
-  const { error } = await supabase.from('profiles').delete().eq('id', userId);
-  if (error) { showToast('Error al eliminar usuario', 'error'); return; }
-  showToast('Usuario eliminado', 'success');
-  loadAllUsers();
-  loadAdminStats();
+  try {
+    const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error();
+    showToast('Usuario eliminado', 'success');
+    loadAllUsers();
+    loadAdminStats();
+  } catch (error) {
+    showToast('Error al eliminar usuario', 'error');
+  }
 }
-
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
 function confirmAction(title, message) {
   return new Promise((resolve) => {
@@ -370,13 +396,12 @@ function confirmAction(title, message) {
  * Exportar usuarios a CSV
  */
 async function handleExportUsers() {
-  const { data: users } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-  if (!users || users.length === 0) {
+  if (!allUsers || allUsers.length === 0) {
     showToast('No hay usuarios para exportar', 'warning');
     return;
   }
   const roleLabels = { student: 'Estudiante', patient: 'Paciente', admin: 'Administrador' };
-  const exportData = users.map(u => ({
+  const exportData = allUsers.map(u => ({
     ...u,
     role_label: roleLabels[u.role] || u.role
   }));
@@ -389,4 +414,3 @@ async function handleExportUsers() {
     { key: 'created_at', label: 'Fecha Registro' }
   ], 'usuarios_odontounerg');
 }
-

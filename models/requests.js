@@ -1,124 +1,139 @@
 /* =============================================
    MODEL: REQUESTS.JS
    Modelo de datos para solicitudes
-   
-   Encapsula las consultas a Supabase
-   relacionadas con las solicitudes entre
-   estudiantes y pacientes.
+   SQLite como Principal
    ============================================= */
 
-const supabase = require('../config/supabase');
+const db = require('../config/database');
 
 /**
  * Crear una nueva solicitud
- * @param {string} studentId - ID del estudiante
- * @param {string} patientId - ID del paciente
- * @param {string} message - Mensaje opcional
- * @returns {boolean} Éxito de la operación
  */
 async function createRequest(studentId, patientId, message = '') {
-  // Verificar que no exista solicitud activa
-  const { data: existing } = await supabase
-    .from('requests')
-    .select('id')
-    .eq('student_id', studentId)
-    .eq('patient_id', patientId)
-    .in('status', ['pending', 'accepted', 'active'])
-    .single();
+  try {
+    // 1. Verificar existencia en SQLite
+    const existing = await db.getSQLite("SELECT id FROM requests WHERE student_id = ? AND patient_id = ? AND status IN ('pending', 'accepted', 'active')", [studentId, patientId]);
+    if (existing) return { success: false, message: 'Ya existe una solicitud activa con este paciente' };
 
-  if (existing) return { success: false, message: 'Ya existe una solicitud activa' };
+    const id = Date.now().toString();
+    const created_at = new Date().toISOString();
 
-  const { error } = await supabase.from('requests').insert({
-    student_id: studentId,
-    patient_id: patientId,
-    status: 'pending',
-    message: message || null
-  });
+    // 2. Guardar en SQLite (Principal)
+    await db.runSQLite(
+      'INSERT INTO requests (id, student_id, patient_id, status, message, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, studentId, patientId, 'pending', message || null, created_at]
+    );
 
-  if (error) return { success: false, message: 'Error al crear solicitud' };
-  return { success: true };
+    // 3. Sincronizar a Supabase en background si hay internet (Secundario)
+    if (await db.getStatus()) {
+      db.supabase.from('requests').insert({
+        id, student_id: studentId, patient_id: patientId, status: 'pending', message: message || null, created_at
+      }).then(() => {}).catch(() => {});
+    }
+
+    return { success: true };
+  } catch(e) {
+    console.error('Error en createRequest:', e);
+    return { success: false, message: 'Error interno en la base de datos local' };
+  }
 }
 
 /**
  * Obtener solicitudes de un estudiante
- * @param {string} studentId - ID del estudiante
- * @param {string} status - Filtrar por estado (opcional)
- * @returns {Array} Lista de solicitudes
  */
 async function getStudentRequests(studentId, status = null) {
-  let query = supabase
-    .from('requests')
-    .select(`
-      *,
-      patient:patient_id(id, full_name, email, avatar_url, phone)
-    `)
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: false });
-
-  if (status) query = query.eq('status', status);
-
-  const { data } = await query;
-  return data || [];
+  try {
+    let sql = `
+      SELECT r.*, p.full_name, p.email, p.phone
+      FROM requests r
+      LEFT JOIN profiles p ON r.patient_id = p.id
+      WHERE r.student_id = ?
+    `;
+    let params = [studentId];
+    if (status) {
+      sql += ' AND r.status = ?';
+      params.push(status);
+    }
+    sql += ' ORDER BY r.created_at DESC';
+    const data = await db.querySQLite(sql, params);
+    
+    // Formatear para que el frontend lo lea bien
+    return data.map(r => ({
+      ...r,
+      patient: { full_name: r.full_name, email: r.email, phone: r.phone }
+    }));
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
  * Obtener solicitudes de un paciente
- * @param {string} patientId - ID del paciente
- * @param {string} status - Filtrar por estado (opcional)
- * @returns {Array} Lista de solicitudes
  */
 async function getPatientRequests(patientId, status = null) {
-  let query = supabase
-    .from('requests')
-    .select(`
-      *,
-      student:student_id(id, full_name, email, avatar_url, phone)
-    `)
-    .eq('patient_id', patientId)
-    .order('created_at', { ascending: false });
-
-  if (status) query = query.eq('status', status);
-
-  const { data } = await query;
-  return data || [];
+  try {
+    let sql = `
+      SELECT r.*, s.full_name, s.email, s.phone
+      FROM requests r
+      LEFT JOIN profiles s ON r.student_id = s.id
+      WHERE r.patient_id = ?
+    `;
+    let params = [patientId];
+    if (status) {
+      sql += ' AND r.status = ?';
+      params.push(status);
+    }
+    sql += ' ORDER BY r.created_at DESC';
+    const data = await db.querySQLite(sql, params);
+    
+    return data.map(r => ({
+      ...r,
+      student: { full_name: r.full_name, email: r.email, phone: r.phone }
+    }));
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
  * Actualizar estado de una solicitud
- * @param {string} requestId - ID de la solicitud
- * @param {string} newStatus - Nuevo estado
- * @returns {boolean} Éxito de la operación
  */
 async function updateRequestStatus(requestId, newStatus) {
-  const { error } = await supabase
-    .from('requests')
-    .update({
-      status: newStatus,
-      updated_at: new Date().toISOString()
-    })
-    .eq('id', requestId);
+  try {
+    await db.runSQLite('UPDATE requests SET status = ? WHERE id = ?', [newStatus, requestId]);
 
-  return !error;
+    if (await db.getStatus()) {
+      db.supabase.from('requests').update({ status: newStatus }).eq('id', requestId).then(()=>{}).catch(()=>{});
+    }
+    return true;
+  } catch(e) {
+    return false;
+  }
 }
 
 /**
  * Obtener todas las solicitudes (para administración)
- * @returns {Array} Lista completa de solicitudes
  */
 async function getAllRequests() {
-  const { data } = await supabase
-    .from('requests')
-    .select(`
-      *,
-      student:student_id(full_name),
-      patient:patient_id(full_name)
-    `)
-    .order('created_at', { ascending: false });
-
-  return data || [];
+  try {
+    const sql = `
+      SELECT r.*, s.full_name as student_name, p.full_name as patient_name
+      FROM requests r
+      LEFT JOIN profiles s ON r.student_id = s.id
+      LEFT JOIN profiles p ON r.patient_id = p.id
+      ORDER BY r.created_at DESC
+    `;
+    const data = await db.querySQLite(sql);
+    return data.map(r => ({
+      ...r,
+      student: { full_name: r.student_name },
+      patient: { full_name: r.patient_name }
+    }));
+  } catch (e) {
+    return [];
+  }
 }
 
-// Exportar funciones del modelo
 module.exports = {
   createRequest,
   getStudentRequests,

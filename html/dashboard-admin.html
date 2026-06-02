@@ -58,7 +58,7 @@
         <!-- INICIO -->
         <section id="section-inicio">
           <div class="stats-grid" id="stats-grid"></div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1.5rem;">
+          <div class="admin-charts-grid">
             <div class="card">
               <div class="card-header"><span class="card-title">📊 Distribución de Usuarios</span></div>
               <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
@@ -72,7 +72,7 @@
               </div>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem;">
+          <div class="admin-charts-grid">
             <div class="card">
               <div class="card-header"><span class="card-title">📅 Citas por Estado</span></div>
               <div class="card-body" style="display:flex;justify-content:center;padding:1.5rem;">
@@ -142,8 +142,11 @@
     </main>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Overlay para cerrar el sidebar en móvil al tocar fuera -->
+  <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
+
+  <script src="/js/libs/chart.umd.min.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="../js/supabase-config.js"></script>
   <script src="../js/utils.js"></script>
   <script src="../js/auth.js"></script>

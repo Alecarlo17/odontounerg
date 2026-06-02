@@ -7,6 +7,7 @@
    ============================================= */
 
 const RequestsModel = require('../models/requests');
+const { sendNotification } = require('../services/notificationService');
 
 /**
  * Enviar solicitud
@@ -18,6 +19,8 @@ async function sendRequest(req, res) {
   if (!result.success) {
     return res.status(400).json(result);
   }
+  
+  await sendNotification(patientId, 'request_new', 'Nueva Solicitud', 'Un estudiante te ha enviado una solicitud', studentId);
   return res.json(result);
 }
 
@@ -45,22 +48,34 @@ async function getPatientRequests(req, res) {
  * Aceptar solicitud
  */
 async function acceptRequest(req, res) {
-  const success = await RequestsModel.updateRequestStatus(req.params.id, 'accepted');
-  if (!success) {
-    return res.status(500).json({ success: false, message: 'Error al aceptar' });
+  const { id } = req.params;
+  const result = await RequestsModel.updateRequestStatus(id, 'accepted');
+  if (result.success) {
+    const db = require('../config/database');
+    const requestRow = await db.getSQLite('SELECT student_id, patient_id FROM requests WHERE id = ?', [id]);
+    if (requestRow) {
+      await sendNotification(requestRow.student_id, 'request_accepted', 'Solicitud Aceptada', 'Un paciente ha aceptado tu solicitud', requestRow.patient_id);
+    }
   }
-  return res.json({ success: true, message: 'Solicitud aceptada' });
+  return res.json(result);
 }
 
 /**
  * Rechazar solicitud
  */
 async function rejectRequest(req, res) {
-  const success = await RequestsModel.updateRequestStatus(req.params.id, 'rejected');
-  if (!success) {
-    return res.status(500).json({ success: false, message: 'Error al rechazar' });
+  const { id } = req.params;
+  const result = await RequestsModel.updateRequestStatus(id, 'rejected');
+  
+  if (result.success || result) {
+    const db = require('../config/database');
+    const requestRow = await db.getSQLite('SELECT student_id, patient_id FROM requests WHERE id = ?', [id]);
+    if (requestRow) {
+      await sendNotification(requestRow.student_id, 'request_rejected', 'Solicitud Rechazada', 'Un paciente ha rechazado tu solicitud', requestRow.patient_id);
+    }
   }
-  return res.json({ success: true, message: 'Solicitud rechazada' });
+  
+  return res.json(result.success !== undefined ? result : { success: !!result });
 }
 
 /**

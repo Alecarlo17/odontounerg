@@ -658,30 +658,159 @@
 }
 
 /* =============================================
-   RESPONSIVE
+   GRIDS DE DASHBOARD - Clases reutilizables
+   Reemplazan los style="display:grid" inline
+   ============================================= */
+
+/* Grid del inicio del dashboard: 2 columnas en desktop, 1 en móvil */
+.inicio-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Grid de gráficos del admin: 2 columnas en desktop, 1 en móvil */
+.admin-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+/* =============================================
+   SIDEBAR OVERLAY (para móvil)
+   Se muestra cuando el sidebar está abierto en pantallas pequeñas
+   ============================================= */
+#sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 99;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+#sidebar-overlay.active {
+  display: block;
+}
+
+/* =============================================
+   RESPONSIVE - Dashboard
    ============================================= */
 @media (max-width: 1024px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .admin-charts-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 768px) {
+  /* Sidebar: oculto por defecto en móvil */
   .sidebar {
     transform: translateX(-100%);
+    z-index: 100;
   }
   .sidebar.open {
     transform: translateX(0);
     box-shadow: var(--shadow-xl);
   }
+
+  /* El overlay se activa con el sidebar */
+  .sidebar.open ~ #sidebar-overlay {
+    display: block;
+  }
+
+  /* Contenido principal sin margen izquierdo en móvil */
   .main-content {
     margin-left: 0;
   }
+
+  /* Mostrar botón hamburguesa en móvil */
   .menu-toggle {
     display: flex;
   }
+
+  /* Estadísticas: 1 columna en móvil */
   .stats-grid { grid-template-columns: 1fr; }
+
+  /* Grids del dashboard inicio: 1 columna en móvil */
+  .inicio-grid { grid-template-columns: 1fr; }
+
+  /* Gráficos admin: 1 columna en móvil */
+  .admin-charts-grid { grid-template-columns: 1fr; }
+
+  /* Padding reducido en móvil */
   .page-content { padding: 1rem; }
+
+  /* Filtros apilados en móvil */
   .filters-bar { flex-direction: column; }
   .search-input-wrapper { width: 100%; }
+
+  /* Tabla responsive: texto más pequeño y celdas reducidas */
+  .data-table th,
+  .data-table td {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  /* Ocultar columnas menos importantes en tablas de móvil */
+  .data-table .col-hide-mobile {
+    display: none;
+  }
+
+  /* Navbar: ajuste de padding */
+  .navbar { padding: 0 1rem; }
+  .navbar-title { font-size: 1rem; }
+}
+
+@media (max-width: 480px) {
+  /* Stats: 1 columna con padding ajustado */
+  .stat-card { padding: 1rem; }
+  .stat-value { font-size: 1.5rem; }
+
+  /* Tabs: scroll horizontal si no caben */
+  .tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; }
+
+  /* Card body: padding reducido */
+  .card-body { padding: 1rem; }
+  .card-header { padding: 0.75rem 1rem; }
+
+  /* Page content: padding mínimo */
+  .page-content { padding: 0.75rem; }
+
+  /* Filtros: 100% de ancho */
+  .filter-select { width: 100%; }
+}
+
+/* =============================================
+   CHAT - Responsive en móvil
+   ============================================= */
+@media (max-width: 768px) {
+  /* En móvil: el chat ocupa toda la pantalla */
+  .chat-layout {
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  /* Sidebar del chat: colapsable */
+  .chat-sidebar {
+    width: 100% !important;
+    max-height: 200px;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  /* Panel principal del chat: altura automática */
+  .chat-main {
+    min-height: 400px;
+  }
 }
 
 /* =============================================
@@ -733,3 +862,8 @@
 [data-theme="dark"] .sidebar {
   border-right-color: rgba(255,255,255,0.04);
 }
+
+[data-theme="dark"] #sidebar-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+

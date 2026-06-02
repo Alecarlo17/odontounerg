@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="OdontoUNERG - Plataforma digital que conecta estudiantes de odontología con pacientes de la UNERG">
   <title>OdontoUNERG - Plataforma Odontológica Universitaria</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+  
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/landing.css">
 </head>
@@ -14,10 +18,13 @@
   <section class="landing-hero">
     <nav class="landing-nav">
       <div class="landing-nav-logo">
-        <div class="landing-nav-logo-icon"><i data-lucide="heart-pulse"></i></div>
-        OdontoUNERG
+        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 32px; width: auto;">
       </div>
-      <div class="landing-nav-links">
+      <!-- Botón hamburguesa para móvil -->
+      <button class="landing-nav-hamburger" id="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menú">
+        <i data-lucide="menu"></i>
+      </button>
+      <div class="landing-nav-links" id="landing-nav-links">
         <a href="#features">Características</a>
         <a href="#how-it-works">Cómo Funciona</a>
         <a href="#treatments">Tratamientos</a>
@@ -36,8 +43,9 @@
           Plataforma digital que facilita la organización de citas, solicitudes y comunicación entre estudiantes de odontología y pacientes, dentro de un entorno moderno y accesible.
         </p>
         <div class="landing-hero-actions">
+          <!-- Botón limpio: sin flecha ni icono extra -->
           <a href="/registro-paciente" class="landing-btn-primary">
-            Registrarse como Paciente →
+            Registrarse como Paciente
           </a>
           <a href="/registro-estudiante" class="landing-btn-secondary">
             Soy Estudiante
@@ -161,17 +169,66 @@
     <div class="landing-section-header">
       <span class="landing-section-label">Tratamientos</span>
       <h2 class="landing-section-title">Áreas odontológicas disponibles</h2>
-      <p class="landing-section-desc">Los pacientes pueden solicitar atención en diversas especialidades</p>
+      <p class="landing-section-desc">Presiona cada especialidad para ver una breve descripción informativa</p>
     </div>
     <div class="treatments-grid">
-      <div class="treatment-tag">Ortodoncia</div>
-      <div class="treatment-tag">Extracción</div>
-      <div class="treatment-tag">Limpieza dental</div>
-      <div class="treatment-tag">Caries</div>
-      <div class="treatment-tag">Endodoncia</div>
-      <div class="treatment-tag">Prótesis</div>
-      <div class="treatment-tag">Ortopedia</div>
-      <div class="treatment-tag">Periodoncia</div>
+      <!-- Cada especialidad es un botón interactivo con data-specialty y data-desc -->
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Ortodoncia"
+        data-desc="Especialidad encargada de corregir la posición de los dientes y la mandíbula mediante el uso de aparatos ortopédicos fijos o removibles. Mejora tanto la función masticatoria como la estética dental."
+        data-icon="align-center">
+        <i data-lucide="align-center" style="width:16px;height:16px;"></i>
+        Ortodoncia
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Extracción"
+        data-desc="Procedimiento odontológico para remover dientes dañados, infectados o que no tienen solución con otros tratamientos. Se realiza bajo anestesia local para garantizar la comodidad del paciente."
+        data-icon="scissors">
+        <i data-lucide="scissors" style="width:16px;height:16px;"></i>
+        Extracción
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Limpieza Dental"
+        data-desc="Eliminación profesional de sarro, placa bacteriana y manchas acumuladas en los dientes. Previene enfermedades periodontales y mantiene la salud bucal en óptimas condiciones."
+        data-icon="sparkles">
+        <i data-lucide="sparkles" style="width:16px;height:16px;"></i>
+        Limpieza dental
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Caries"
+        data-desc="Tratamiento de lesiones causadas por bacterias que destruyen progresivamente el esmalte dental. Se eliminan los tejidos afectados y se restaura el diente con materiales biocompatibles."
+        data-icon="zap">
+        <i data-lucide="zap" style="width:16px;height:16px;"></i>
+        Caries
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Endodoncia"
+        data-desc="Tratamiento del nervio o pulpa dental para aliviar dolor e infecciones profundas. Permite conservar el diente natural evitando su extracción cuando está comprometida la raíz."
+        data-icon="activity">
+        <i data-lucide="activity" style="width:16px;height:16px;"></i>
+        Endodoncia
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Prótesis"
+        data-desc="Reemplazo de dientes perdidos con piezas artificiales fijas o removibles. Restaura la función masticatoria, el habla y la estética facial del paciente."
+        data-icon="layers">
+        <i data-lucide="layers" style="width:16px;height:16px;"></i>
+        Prótesis
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Ortopedia"
+        data-desc="Corrección de problemas en el desarrollo de los huesos y estructuras del maxilar. Especialmente indicada en niños y adolescentes para guiar el crecimiento facial correcto."
+        data-icon="frame">
+        <i data-lucide="frame" style="width:16px;height:16px;"></i>
+        Ortopedia
+      </button>
+      <button class="treatment-tag" onclick="openSpecialtyModal(this)"
+        data-specialty="Periodoncia"
+        data-desc="Tratamiento de las encías y estructuras de soporte del diente (hueso y ligamentos). Previene y trata la periodontitis, enfermedad que puede causar la pérdida de piezas dentales."
+        data-icon="shield">
+        <i data-lucide="shield" style="width:16px;height:16px;"></i>
+        Periodoncia
+      </button>
     </div>
   </section>
 
@@ -182,38 +239,25 @@
       <h2 class="landing-section-title">Arquitectura del Sistema</h2>
       <p class="landing-section-desc">Desarrollado con tecnologías modernas, seguras y fáciles de mantener</p>
     </div>
-    <div style="max-width:900px;margin:0 auto;">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2rem;">
-        <div class="feature-card" style="text-align:center;">
-          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="globe" style="width:40px;height:40px;"></i></div>
-          <h3 class="feature-title">Frontend</h3>
-          <p class="feature-desc">HTML5, CSS3 y JavaScript puro. Sin frameworks complejos. Código limpio y organizado.</p>
-        </div>
-        <div class="feature-card" style="text-align:center;">
-          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="zap" style="width:40px;height:40px;"></i></div>
-          <h3 class="feature-title">Backend (MVC)</h3>
-          <p class="feature-desc">Node.js + Express con arquitectura MVC. Supabase como BaaS: auth, DB y realtime.</p>
-        </div>
-        <div class="feature-card" style="text-align:center;">
-          <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="database" style="width:40px;height:40px;"></i></div>
-          <h3 class="feature-title">Base de Datos</h3>
-          <p class="feature-desc">PostgreSQL con Row Level Security (RLS) para protección a nivel de fila.</p>
-        </div>
+    <!-- Clase CSS para responsive correcto: 3 columnas en desktop, 1 en móvil -->
+    <div class="about-tech-grid">
+      <div class="feature-card" style="text-align:center;">
+        <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="globe" style="width:40px;height:40px;"></i></div>
+        <h3 class="feature-title">Frontend</h3>
+        <p class="feature-desc">HTML5, CSS3 y JavaScript puro. Sin frameworks complejos. Código limpio y organizado.</p>
       </div>
-      <div class="feature-card" style="padding:2rem;">
-        <h3 class="feature-title" style="margin-bottom:1rem;font-size:1.15rem;"><i data-lucide="clipboard-list" style="width:18px;height:18px;display:inline;"></i> Información del Proyecto</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Universidad:</strong> UNERG</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Facultad:</strong> Odontología</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Tipo:</strong> Proyecto de Grado II</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Área:</strong> Informática</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Autenticación:</strong> Supabase Auth (JWT)</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Seguridad:</strong> RLS + Validaciones</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Comunicación:</strong> WebSocket (Realtime)</p>
-          <p style="font-size:0.9rem;color:var(--text-secondary);"><strong>Almacenamiento:</strong> Supabase Storage</p>
-        </div>
+      <div class="feature-card" style="text-align:center;">
+        <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="zap" style="width:40px;height:40px;"></i></div>
+        <h3 class="feature-title">Backend (MVC)</h3>
+        <p class="feature-desc">Node.js + Express con arquitectura MVC. Supabase como BaaS: auth, DB y realtime.</p>
+      </div>
+      <div class="feature-card" style="text-align:center;">
+        <div style="margin-bottom:0.75rem;color:var(--primary);display:flex;justify-content:center;"><i data-lucide="database" style="width:40px;height:40px;"></i></div>
+        <h3 class="feature-title">Base de Datos</h3>
+        <p class="feature-desc">PostgreSQL con Row Level Security (RLS) para protección a nivel de fila.</p>
       </div>
     </div>
+    <!-- La tarjeta "Información del Proyecto" ha sido eliminada según los requerimientos -->
   </section>
 
   <!-- ================================ CTA ================================ -->
@@ -242,26 +286,106 @@
     </div>
   </footer>
 
-  <!-- Script para cargar estadísticas públicas -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <!-- ================================ MODAL DE ESPECIALIDADES ================================ -->
+  <div class="specialty-modal-overlay" id="specialty-modal-overlay" onclick="closeSpecialtyModal()">
+    <div class="specialty-modal" id="specialty-modal" onclick="event.stopPropagation()">
+      <button class="specialty-modal-close" onclick="closeSpecialtyModal()" aria-label="Cerrar">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="specialty-modal-icon" id="specialty-modal-icon">
+        <i data-lucide="heart-pulse" style="width:32px;height:32px;"></i>
+      </div>
+      <h3 class="specialty-modal-title" id="specialty-modal-title">Especialidad</h3>
+      <p class="specialty-modal-desc" id="specialty-modal-desc">Descripción de la especialidad.</p>
+      <a href="/registro-paciente" class="specialty-modal-btn">Solicitar esta atención</a>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/js/libs/supabase-js.js"></script>
+  <script src="/js/libs/lucide.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script>
-    // Cargar estadísticas públicas (conteos)
+    // ============================================
+    // Inicializar íconos Lucide al cargar
+    // ============================================
     document.addEventListener('DOMContentLoaded', async () => {
       lucide.createIcons();
+
+      // Cargar estadísticas públicas (conteos)
       try {
         const { count: students } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
         const { count: patients } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
         const { count: appointments } = await supabase.from('appointments').select('*', { count: 'exact', head: true });
-        
-        // Animar contadores
+
         animateCounter('stat-students', students || 0);
         animateCounter('stat-patients', patients || 0);
         animateCounter('stat-appointments', appointments || 0);
       } catch (e) { console.log('Stats loading error'); }
+
+      // Check session and update UI asynchronously to avoid blocking
+      (async () => {
+        try {
+          const offlineSession = localStorage.getItem('offline_session');
+          let isLoggedIn = false;
+          let userName = '';
+          let userRole = '';
+          
+          if (offlineSession) {
+            const s = JSON.parse(offlineSession);
+            if (s && s.user) {
+              isLoggedIn = true;
+              userName = s.user.full_name || s.user.email;
+              userRole = s.user.role;
+            }
+          } else {
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (sessionData && sessionData.session) {
+               isLoggedIn = true;
+               // Get username from metadata if available, otherwise generic
+               userName = sessionData.session.user.user_metadata?.full_name || "Mi Perfil";
+               
+               // Role is usually in user_metadata in this project setup, or we can just redirect to a generic dashboard router
+               userRole = sessionData.session.user.user_metadata?.role || '';
+               // If role is missing, the backend / frontend will handle redirection anyway when going to a dashboard
+            }
+          }
+
+          if (isLoggedIn) {
+            // Default to estudiante if role not found, the requireAuth in dashboard will redirect if wrong
+            const dashboardUrl = userRole === 'admin' ? '/dashboard-admin' : userRole === 'patient' ? '/dashboard-paciente' : '/dashboard-estudiante';
+            
+            // Navbar
+            const navContainer = document.getElementById('landing-nav-links');
+            const loginBtn = document.querySelector('.landing-nav-cta');
+            if (loginBtn) loginBtn.remove();
+            
+            const profileLink = document.createElement('a');
+            profileLink.href = dashboardUrl;
+            profileLink.className = 'landing-nav-cta';
+            profileLink.style.display = 'flex';
+            profileLink.style.alignItems = 'center';
+            profileLink.style.gap = '8px';
+            profileLink.innerHTML = `<span>${userName}</span> <i data-lucide="arrow-right" style="width:16px;height:16px;"></i>`;
+            navContainer.appendChild(profileLink);
+
+            // CTA bottom
+            const ctaContainer = document.querySelector('.landing-cta div');
+            if (ctaContainer) {
+              ctaContainer.innerHTML = `<a href="${dashboardUrl}" class="landing-btn-primary" style="background:white;color:#2563eb;">Ir al Dashboard</a>`;
+            }
+            
+            lucide.createIcons();
+          }
+        } catch (e) {
+          console.warn('Error checking session state', e);
+        }
+      })();
     });
 
+    // ============================================
+    // Contador animado para estadísticas
+    // ============================================
     function animateCounter(id, target) {
       const el = document.getElementById(id);
       let current = 0;
@@ -273,14 +397,56 @@
       }, 50);
     }
 
+    // ============================================
     // Smooth scroll para links internos
+    // ============================================
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function(e) {
         e.preventDefault();
         const target = document.querySelector(this.getAttribute('href'));
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Cerrar menú móvil al navegar
+        document.getElementById('landing-nav-links').classList.remove('open');
       });
     });
+
+    // ============================================
+    // Menú hamburguesa para móvil (navbar landing)
+    // ============================================
+    function toggleMobileNav() {
+      const links = document.getElementById('landing-nav-links');
+      links.classList.toggle('open');
+    }
+
+    // ============================================
+    // Modal de Especialidades Odontológicas
+    // ============================================
+    function openSpecialtyModal(btn) {
+      const specialty = btn.getAttribute('data-specialty');
+      const desc = btn.getAttribute('data-desc');
+      const icon = btn.getAttribute('data-icon');
+
+      document.getElementById('specialty-modal-title').textContent = specialty;
+      document.getElementById('specialty-modal-desc').textContent = desc;
+      // Actualizar ícono dinámicamente
+      document.getElementById('specialty-modal-icon').innerHTML =
+        `<i data-lucide="${icon}" style="width:32px;height:32px;"></i>`;
+
+      document.getElementById('specialty-modal-overlay').classList.add('active');
+      lucide.createIcons(); // Re-renderizar íconos dentro del modal
+
+      // Registrar listener para cerrar con ESC
+      document.addEventListener('keydown', handleEscKey);
+    }
+
+    function closeSpecialtyModal() {
+      document.getElementById('specialty-modal-overlay').classList.remove('active');
+      document.removeEventListener('keydown', handleEscKey);
+    }
+
+    function handleEscKey(e) {
+      if (e.key === 'Escape') closeSpecialtyModal();
+    }
   </script>
 
 </body>

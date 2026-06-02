@@ -142,12 +142,12 @@ function isValidCedula(cedula) {
 }
 
 /**
- * Validar contraseña (mínimo 6 caracteres)
+ * Validar contraseña (mínimo 8 caracteres)
  * @param {string} password
  * @returns {boolean}
  */
 function isValidPassword(password) {
-  return password && password.length >= 6;
+  return password && password.length >= 8;
 }
 
 /**
@@ -359,3 +359,83 @@ function scrollToBottom() {
   }
 }
 
+/* =============================================
+   SIDEBAR MÓVIL - Con overlay y transición suave
+   ============================================= */
+
+/**
+ * Abrir o cerrar el sidebar lateral (hamburguesa)
+ * Activa el overlay oscuro al abrir en móvil
+ */
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (!sidebar) return;
+
+  const isOpen = sidebar.classList.contains('open');
+
+  if (isOpen) {
+    // Cerrar sidebar
+    sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = ''; // Restaurar scroll
+  } else {
+    // Abrir sidebar
+    sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevenir scroll de fondo
+  }
+}
+
+/**
+ * Cerrar el sidebar al presionar el overlay (fuera del panel)
+ * Esta función se llama desde el onclick del #sidebar-overlay
+ */
+function closeSidebarOverlay() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('active');
+  document.body.style.overflow = ''; // Restaurar scroll
+}
+
+/**
+ * Cerrar sidebar automáticamente al cambiar el tamaño de ventana
+ * (por si el usuario pasa de móvil a desktop con el sidebar abierto)
+ */
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+});
+
+/* =============================================
+   OFFLINE MODE SUPPORT
+   ============================================= */
+
+function checkConnectionStatus() {
+  let banner = document.getElementById('global-offline-banner');
+  if (!navigator.onLine) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'global-offline-banner';
+      banner.innerHTML = '';
+      banner.style.cssText = 'background:#ef4444; color:white; text-align:center; padding:8px; font-weight:500; font-size:14px; position:sticky; top:0; z-index:99999; box-shadow:0 2px 4px rgba(0,0,0,0.1); width:100%;';
+      document.body.prepend(banner);
+    }
+    banner.style.display = 'block';
+  } else {
+    if (banner) {
+      banner.style.display = 'none';
+    }
+  }
+}
+
+// Check status on load and on change
+window.addEventListener('load', checkConnectionStatus);
+window.addEventListener('online', checkConnectionStatus);
+window.addEventListener('offline', checkConnectionStatus);

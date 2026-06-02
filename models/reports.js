@@ -1,98 +1,97 @@
 /* =============================================
    MODEL: REPORTS.JS
    Modelo de datos para reportes y estadísticas
-   
-   Encapsula las consultas a Supabase
-   para generar reportes académicos del sistema.
+   SQLite como Principal
    ============================================= */
 
-const supabase = require('../config/supabase');
+const db = require('../config/database');
 
 /**
  * Obtener estadísticas generales del sistema
- * @returns {object} Estadísticas globales
  */
 async function getSystemStats() {
-  const { count: totalUsers } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true });
+  try {
+    const users = await db.getSQLite('SELECT COUNT(*) as c FROM profiles');
+    const students = await db.getSQLite("SELECT COUNT(*) as c FROM profiles WHERE role='student'");
+    const patients = await db.getSQLite("SELECT COUNT(*) as c FROM profiles WHERE role='patient'");
+    const requests = await db.getSQLite('SELECT COUNT(*) as c FROM requests');
+    const appointments = await db.getSQLite('SELECT COUNT(*) as c FROM appointments');
 
-  const { count: totalStudents } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'student');
-
-  const { count: totalPatients } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'patient');
-
-  const { count: totalRequests } = await supabase
-    .from('requests')
-    .select('*', { count: 'exact', head: true });
-
-  const { count: totalAppointments } = await supabase
-    .from('appointments')
-    .select('*', { count: 'exact', head: true });
-
-  return {
-    totalUsers: totalUsers || 0,
-    totalStudents: totalStudents || 0,
-    totalPatients: totalPatients || 0,
-    totalRequests: totalRequests || 0,
-    totalAppointments: totalAppointments || 0
-  };
+    return {
+      totalUsers: users ? users.c : 0,
+      totalStudents: students ? students.c : 0,
+      totalPatients: patients ? patients.c : 0,
+      totalRequests: requests ? requests.c : 0,
+      totalAppointments: appointments ? appointments.c : 0
+    };
+  } catch (e) {
+    return {
+      totalUsers: 0, totalStudents: 0, totalPatients: 0, totalRequests: 0, totalAppointments: 0
+    };
+  }
 }
 
 /**
  * Obtener tratamientos de un estudiante
- * @param {string} studentId - ID del estudiante
- * @returns {Array} Lista de tratamientos
  */
 async function getStudentTreatments(studentId) {
-  const { data } = await supabase
-    .from('treatments')
-    .select('*, patient:patient_id(full_name)')
-    .eq('student_id', studentId)
-    .order('created_at', { ascending: false });
-
-  return data || [];
+  try {
+    const sql = `
+      SELECT t.*, p.full_name as patient_name
+      FROM treatments t
+      LEFT JOIN profiles p ON t.patient_id = p.id
+      WHERE t.student_id = ?
+      ORDER BY t.created_at DESC
+    `;
+    const data = await db.querySQLite(sql, [studentId]);
+    return data.map(t => ({
+      ...t,
+      patient: { full_name: t.patient_name }
+    }));
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
  * Obtener tratamientos de un paciente
- * @param {string} patientId - ID del paciente
- * @returns {Array} Lista de tratamientos
  */
 async function getPatientTreatments(patientId) {
-  const { data } = await supabase
-    .from('treatments')
-    .select('*, student:student_id(full_name)')
-    .eq('patient_id', patientId)
-    .order('created_at', { ascending: false });
-
-  return data || [];
+  try {
+    const sql = `
+      SELECT t.*, s.full_name as student_name
+      FROM treatments t
+      LEFT JOIN profiles s ON t.student_id = s.id
+      WHERE t.patient_id = ?
+      ORDER BY t.created_at DESC
+    `;
+    const data = await db.querySQLite(sql, [patientId]);
+    return data.map(t => ({
+      ...t,
+      student: { full_name: t.student_name }
+    }));
+  } catch (e) {
+    return [];
+  }
 }
 
 /**
  * Obtener distribución de tratamientos solicitados
- * @returns {object} Conteo por tipo de tratamiento
  */
 async function getTreatmentDistribution() {
-  const { data: patients } = await supabase
-    .from('patients')
-    .select('consultation_reason');
-
-  const distribution = {};
-  (patients || []).forEach(p => {
-    const reason = p.consultation_reason || 'No especificado';
-    distribution[reason] = (distribution[reason] || 0) + 1;
-  });
-
-  return distribution;
+  try {
+    const patients = await db.querySQLite('SELECT consultation_reason FROM patients');
+    const distribution = {};
+    patients.forEach(p => {
+      const reason = p.consultation_reason || 'No especificado';
+      distribution[reason] = (distribution[reason] || 0) + 1;
+    });
+    return distribution;
+  } catch (e) {
+    return {};
+  }
 }
 
-// Exportar funciones del modelo
 module.exports = {
   getSystemStats,
   getStudentTreatments,

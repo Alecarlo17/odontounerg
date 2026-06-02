@@ -13,6 +13,9 @@ router.get('/conversations/:userId', chatController.getConversations);
 // Obtener mensajes de una conversación
 router.get('/messages/:conversationId', chatController.getMessages);
 
+// Marcar mensajes como leídos
+router.put('/messages/:conversationId/read', chatController.markMessagesAsRead);
+
 // Enviar mensaje
 router.post('/messages', chatController.sendMessage);
 
