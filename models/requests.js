@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: REQUESTS.JS
    Modelo de datos para solicitudes
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,30 +10,34 @@ const db = require('../config/database');
  */
 async function createRequest(studentId, patientId, message = '') {
   try {
-    // 1. Verificar existencia en SQLite
-    const existing = await db.getSQLite("SELECT id FROM requests WHERE student_id = ? AND patient_id = ? AND status IN ('pending', 'accepted', 'active')", [studentId, patientId]);
+    const { data: existing, error: existError } = await db.supabase
+      .from('requests')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('patient_id', patientId)
+      .in('status', ['pending', 'accepted', 'active'])
+      .maybeSingle();
+
+    if (existError) throw existError;
     if (existing) return { success: false, message: 'Ya existe una solicitud activa con este paciente' };
 
-    const id = Date.now().toString();
     const created_at = new Date().toISOString();
 
-    // 2. Guardar en SQLite (Principal)
-    await db.runSQLite(
-      'INSERT INTO requests (id, student_id, patient_id, status, message, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, studentId, patientId, 'pending', message || null, created_at]
-    );
+    const { error } = await db.supabase
+      .from('requests')
+      .insert({
+        student_id: studentId, 
+        patient_id: patientId, 
+        status: 'pending', 
+        message: message || null, 
+        created_at
+      });
 
-    // 3. Sincronizar a Supabase en background si hay internet (Secundario)
-    if (await db.getStatus()) {
-      db.supabase.from('requests').insert({
-        id, student_id: studentId, patient_id: patientId, status: 'pending', message: message || null, created_at
-      }).then(() => {}).catch(() => {});
-    }
-
+    if (error) throw error;
     return { success: true };
   } catch(e) {
     console.error('Error en createRequest:', e);
-    return { success: false, message: 'Error interno en la base de datos local' };
+    return { success: false, message: 'Error interno en la base de datos' };
   }
 }
 
@@ -43,26 +46,25 @@ async function createRequest(studentId, patientId, message = '') {
  */
 async function getStudentRequests(studentId, status = null) {
   try {
-    let sql = `
-      SELECT r.*, p.full_name, p.email, p.phone
-      FROM requests r
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      WHERE r.student_id = ?
-    `;
-    let params = [studentId];
+    let query = db.supabase
+      .from('requests')
+      .select(`
+        *,
+        patient:patient_id(full_name, email, phone)
+      `)
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+
     if (status) {
-      sql += ' AND r.status = ?';
-      params.push(status);
+      query = query.eq('status', status);
     }
-    sql += ' ORDER BY r.created_at DESC';
-    const data = await db.querySQLite(sql, params);
+
+    const { data, error } = await query;
+    if (error) throw error;
     
-    // Formatear para que el frontend lo lea bien
-    return data.map(r => ({
-      ...r,
-      patient: { full_name: r.full_name, email: r.email, phone: r.phone }
-    }));
+    return data || [];
   } catch (e) {
+    console.error('Error en getStudentRequests:', e);
     return [];
   }
 }
@@ -72,25 +74,25 @@ async function getStudentRequests(studentId, status = null) {
  */
 async function getPatientRequests(patientId, status = null) {
   try {
-    let sql = `
-      SELECT r.*, s.full_name, s.email, s.phone
-      FROM requests r
-      LEFT JOIN profiles s ON r.student_id = s.id
-      WHERE r.patient_id = ?
-    `;
-    let params = [patientId];
+    let query = db.supabase
+      .from('requests')
+      .select(`
+        *,
+        student:student_id(full_name, email, phone)
+      `)
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false });
+
     if (status) {
-      sql += ' AND r.status = ?';
-      params.push(status);
+      query = query.eq('status', status);
     }
-    sql += ' ORDER BY r.created_at DESC';
-    const data = await db.querySQLite(sql, params);
+
+    const { data, error } = await query;
+    if (error) throw error;
     
-    return data.map(r => ({
-      ...r,
-      student: { full_name: r.full_name, email: r.email, phone: r.phone }
-    }));
+    return data || [];
   } catch (e) {
+    console.error('Error en getPatientRequests:', e);
     return [];
   }
 }
@@ -100,13 +102,15 @@ async function getPatientRequests(patientId, status = null) {
  */
 async function updateRequestStatus(requestId, newStatus) {
   try {
-    await db.runSQLite('UPDATE requests SET status = ? WHERE id = ?', [newStatus, requestId]);
+    const { error } = await db.supabase
+      .from('requests')
+      .update({ status: newStatus })
+      .eq('id', requestId);
 
-    if (await db.getStatus()) {
-      db.supabase.from('requests').update({ status: newStatus }).eq('id', requestId).then(()=>{}).catch(()=>{});
-    }
+    if (error) throw error;
     return true;
   } catch(e) {
+    console.error('Error en updateRequestStatus:', e);
     return false;
   }
 }
@@ -116,21 +120,39 @@ async function updateRequestStatus(requestId, newStatus) {
  */
 async function getAllRequests() {
   try {
-    const sql = `
-      SELECT r.*, s.full_name as student_name, p.full_name as patient_name
-      FROM requests r
-      LEFT JOIN profiles s ON r.student_id = s.id
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      ORDER BY r.created_at DESC
-    `;
-    const data = await db.querySQLite(sql);
-    return data.map(r => ({
-      ...r,
-      student: { full_name: r.student_name },
-      patient: { full_name: r.patient_name }
-    }));
+    const { data, error } = await db.supabase
+      .from('requests')
+      .select(`
+        *,
+        student:student_id(full_name),
+        patient:patient_id(full_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   } catch (e) {
+    console.error('Error en getAllRequests:', e);
     return [];
+  }
+}
+
+/**
+ * Obtener cantidad de pacientes activos de un estudiante
+ */
+async function getActivePatientsCount(studentId) {
+  try {
+    const { count, error } = await db.supabase
+      .from('requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', studentId)
+      .in('status', ['accepted', 'active']);
+
+    if (error) throw error;
+    return count || 0;
+  } catch (e) {
+    console.error('Error en getActivePatientsCount:', e);
+    return 0; // Prevent creation if error? Better to return 0 to not block completely, or maybe block. Let's return 0.
   }
 }
 
@@ -139,5 +161,6 @@ module.exports = {
   getStudentRequests,
   getPatientRequests,
   updateRequestStatus,
-  getAllRequests
+  getAllRequests,
+  getActivePatientsCount
 };

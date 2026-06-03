@@ -4,15 +4,10 @@ async function sendNotification(userId, tipo, titulo, mensaje, referenciaId = nu
   try {
     const id = Date.now().toString();
     const created_at = new Date().toISOString();
-    await db.runSQLite(
-      'INSERT INTO notifications (id, user_id, tipo, titulo, mensaje, referencia_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, userId, tipo, titulo, mensaje, referenciaId, created_at]
-    );
-    if (await db.getStatus()) {
-      db.supabase.from('notifications').insert({
-        id, user_id: userId, tipo, titulo, mensaje, referencia_id: referenciaId, created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+    
+    await db.supabase.from('notifications').insert({
+      id, user_id: userId, tipo, titulo, mensaje, referencia_id: referenciaId, created_at
+    });
   } catch(e) {
     console.error('Error sending notification', e);
   }

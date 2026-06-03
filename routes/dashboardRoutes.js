@@ -15,4 +15,7 @@ router.get('/admin', dashboardController.getAdminDashboard);
 router.get('/treatments/:role/:userId', dashboardController.getTreatments);
 router.post('/treatments', dashboardController.createTreatment);
 
+// Calificaciones
+router.post('/ratings', dashboardController.createRating);
+
 module.exports = router;

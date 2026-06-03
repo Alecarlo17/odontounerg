@@ -1,5 +1,5 @@
 /* =============================================
-   NOTIFICACIONES.JS (MVC / Offline)
+   NOTIFICACIONES.JS
    Sistema de notificaciones locales
    ============================================= */
 
@@ -103,10 +103,9 @@ function renderNotificationsPanel(notifications) {
 }
 
 /**
- * Inicializar listener de notificaciones locales (Polling)
+ * Inicializar listener de notificaciones (Polling)
  */
 function subscribeToNotifications(userId, callback) {
-  // En modo offline puro o local, usamos short polling.
   // Revisamos si hay notificaciones nuevas cada 5 segundos.
   let lastCheckedTime = new Date().toISOString();
 

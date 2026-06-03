@@ -25,4 +25,7 @@ router.put('/:id/accept', requestController.acceptRequest);
 // Rechazar solicitud
 router.put('/:id/reject', requestController.rejectRequest);
 
+// Dar de alta (Finalizar tratamiento)
+router.put('/:id/discharge', requestController.dischargePatient);
+
 module.exports = router;

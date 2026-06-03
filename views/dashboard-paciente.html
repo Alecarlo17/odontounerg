@@ -232,6 +232,10 @@
             <div id="notifications-list"></div>
           </div>
         </section>
+        <!-- BOTÓN FLOTANTE SOLICITAR ATENCIÓN -->
+        <button id="btn-floating-new-case" class="btn btn-primary" style="position:fixed; bottom:2rem; right:2rem; border-radius:50px; box-shadow: 0 4px 12px rgba(14,165,233,0.3); display:none; z-index:100; padding:1rem 1.5rem; font-weight:bold; align-items:center; gap:0.5rem;" onclick="openNuevoCasoModal()">
+          <i data-lucide="plus-circle"></i> Solicitar Nueva Atención
+        </button>
       </div>
     </main>
   </div>
@@ -311,6 +315,64 @@
           <textarea class="form-textarea" id="calificar-comentario" placeholder="Deje un comentario sobre la atención..."></textarea>
         </div>
         <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Reingreso Pregunta -->
+  <div class="modal-overlay" id="modal-reingreso-pregunta">
+    <div class="modal" style="max-width:400px; text-align:center;">
+      <div class="modal-header" style="border-bottom:none; justify-content:center; padding-bottom:0;">
+        <h3 class="modal-title" style="font-size:1.25rem;">Tratamiento Finalizado</h3>
+      </div>
+      <div class="modal-body" style="padding-top:1rem;">
+        <div style="color:var(--primary); margin-bottom:1rem;">
+          <i data-lucide="check-circle" style="width:48px; height:48px;"></i>
+        </div>
+        <p style="margin-bottom: 1.5rem; font-size:1rem; color:var(--text);">¿Presenta actualmente otro problema odontológico que requiera atención?</p>
+        <div style="display:flex; gap:1rem; justify-content:center;">
+          <button class="btn btn-outline" style="flex:1" onclick="handleReingresoOption('no')">No, estoy bien</button>
+          <button class="btn btn-primary" style="flex:1" onclick="handleReingresoOption('si')">Sí, necesito atención</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Nuevo Caso -->
+  <div class="modal-overlay" id="modal-nuevo-caso">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Registrar Nuevo Caso</h3>
+        <button class="modal-close" onclick="closeModal('modal-nuevo-caso')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleSubmitNuevoCaso(event)">
+        <div class="form-group">
+          <label class="form-label">Problema Odontológico (Especialidad)</label>
+          <select class="form-select" id="new-case-problema" required>
+            <option value="">Seleccione</option>
+            <option value="Ortodoncia">Ortodoncia</option>
+            <option value="Extracción">Extracción</option>
+            <option value="Limpieza dental">Limpieza dental</option>
+            <option value="Caries">Caries</option>
+            <option value="Endodoncia">Endodoncia</option>
+            <option value="Prótesis">Prótesis</option>
+            <option value="Ortopedia">Ortopedia</option>
+            <option value="Periodoncia">Periodoncia</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción del caso / Observaciones clínicas</label>
+          <textarea class="form-textarea" id="new-case-descripcion" rows="3" required placeholder="Describa brevemente su problema actual..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Disponibilidad</label>
+          <select class="form-select" id="new-case-disponibilidad" required>
+            <option value="disponible">Disponible</option>
+            <option value="ocupado">Ocupado</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Publicar Solicitud de Atención</button>
       </form>
     </div>
   </div>

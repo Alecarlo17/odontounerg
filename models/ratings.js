@@ -9,21 +9,19 @@ const db = require('../config/database');
  */
 async function createRating(studentId, patientId, rating, comment = '') {
   try {
-    const id = Date.now().toString();
     const created_at = new Date().toISOString();
 
-    await db.runSQLite(
-      'INSERT INTO ratings (id, student_id, patient_id, rating, comment, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, studentId, patientId, rating, comment, created_at]
-    );
+    const { error } = await db.supabase
+      .from('ratings')
+      .insert({
+        student_id: studentId, 
+        patient_id: patientId, 
+        score: rating, 
+        comment, 
+        created_at
+      });
 
-    // Sync to Supabase si hay red
-    if (await db.getStatus()) {
-      db.supabase.from('ratings').insert({
-        id, student_id: studentId, patient_id: patientId, rating, comment, created_at
-      }).then(() => {}).catch(() => {});
-    }
-
+    if (error) throw error;
     return { success: true };
   } catch(e) {
     console.error('Error en createRating:', e);
@@ -36,16 +34,26 @@ async function createRating(studentId, patientId, rating, comment = '') {
  */
 async function getStudentRatings(studentId) {
   try {
-    const sql = `
-      SELECT r.*, p.full_name as patient_name 
-      FROM ratings r
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      WHERE r.student_id = ?
-      ORDER BY r.created_at DESC
-    `;
-    const data = await db.querySQLite(sql, [studentId]);
-    return data;
+    const { data, error } = await db.supabase
+      .from('ratings')
+      .select(`
+        *,
+        patient:patient_id(full_name)
+      `)
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return (data || []).map(r => {
+      const pat = Array.isArray(r.patient) ? r.patient[0] : r.patient;
+      return {
+        ...r,
+        patient_name: pat ? pat.full_name : 'Desconocido'
+      };
+    });
   } catch (e) {
+    console.error('Error en getStudentRatings:', e);
     return [];
   }
 }
@@ -55,9 +63,23 @@ async function getStudentRatings(studentId) {
  */
 async function getStudentAverage(studentId) {
   try {
-    const data = await db.querySQLite('SELECT AVG(rating) as avg, COUNT(id) as count FROM ratings WHERE student_id = ?', [studentId]);
-    return data[0] || { avg: 0, count: 0 };
+    const { data, error } = await db.supabase
+      .from('ratings')
+      .select('score')
+      .eq('student_id', studentId);
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return { avg: 0, count: 0 };
+    }
+
+    const sum = data.reduce((acc, curr) => acc + curr.score, 0);
+    const avg = sum / data.length;
+
+    return { avg, count: data.length };
   } catch (e) {
+    console.error('Error en getStudentAverage:', e);
     return { avg: 0, count: 0 };
   }
 }

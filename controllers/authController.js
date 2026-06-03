@@ -7,6 +7,7 @@
    ============================================= */
 
 const UsersModel = require('../models/users');
+const db = require('../config/database');
 
 /**
  * Validar año académico permitido
@@ -101,114 +102,30 @@ async function validatePatientRegistration(req, res) {
  */
 async function getProfile(req, res) {
   const { userId } = req.params;
-  const db = require('../config/database');
 
-  const profile = await UsersModel.getProfileById(userId);
-  if (!profile) {
-    return res.status(404).json({
-      success: false,
-      message: 'Perfil no encontrado'
-    });
-  }
-
-  let roleData = null;
-  if (profile.role === 'student') {
-    roleData = await db.getSQLite('SELECT * FROM students WHERE user_id = ?', [userId]);
-  } else if (profile.role === 'patient') {
-    roleData = await db.getSQLite('SELECT * FROM patients WHERE user_id = ?', [userId]);
-  }
-
-  return res.json({ success: true, data: { ...profile, roleData } });
-}
-
-/**
- * Login Offline (usando SQLite)
- */
-async function loginOffline(req, res) {
-  const { email, password } = req.body;
-  const db = require('../config/database');
-  
   try {
-    const user = await db.getSQLite('SELECT * FROM profiles WHERE LOWER(email) = LOWER(?)', [email]);
-    if (user) {
-      // In a real app we would check password_hash. For offline fallback, we allow if user exists locally
-      // This is a simplified offline auth for the defense.
-      return res.json({ success: true, user: { id: user.id, role: user.role, email: user.email, full_name: user.full_name } });
-    }
-    return res.status(401).json({ success: false, message: 'Usuario no encontrado en modo offline' });
-  } catch(e) {
-    return res.status(500).json({ success: false, message: 'Error de BD local' });
-  }
-}
-
-/**
- * Sincronizar perfil para modo offline
- */
-async function syncProfileOffline(req, res) {
-  const { id, email, full_name, role, phone, disponibilidad } = req.body;
-  const db = require('../config/database');
-  try {
-    const updated_at = new Date().toISOString();
-    
-    // Check if user exists
-    const existing = await db.getSQLite('SELECT * FROM profiles WHERE id = ?', [id]);
-    if (existing) {
-      await db.runSQLite(
-        'UPDATE profiles SET full_name = ?, email = ?, role = ?, phone = ?, disponibilidad = ?, updated_at = ? WHERE id = ?',
-        [full_name, email, role, phone, disponibilidad, updated_at, id]
-      );
-    } else {
-      await db.runSQLite(
-        'INSERT INTO profiles (id, full_name, email, role, phone, disponibilidad, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, full_name, email, role, phone, disponibilidad, updated_at, updated_at]
-      );
-    }
-    return res.json({ success: true, message: 'Perfil sincronizado localmente' });
-  } catch(e) {
-    console.error('Error syncing profile offline:', e);
-    return res.status(500).json({ success: false, message: 'Error al sincronizar' });
-  }
-}
-
-/**
- * Registro Offline (usando SQLite)
- */
-async function registerOffline(req, res) {
-  const { id: providedId, fullName, email, password, role, cedula, academicYear, section, treatments, age, phone, direccion, medical_history, consultation_reason, gender } = req.body;
-  const db = require('../config/database');
-  try {
-    // Verificar si el email ya existe
-    const existing = await db.getSQLite('SELECT * FROM profiles WHERE LOWER(email) = LOWER(?)', [email]);
-    if (existing) {
-      return res.status(400).json({ success: false, message: 'El correo electrónico ya está registrado' });
+    const profile = await UsersModel.getProfileById(userId);
+    if (!profile) {
+      return res.status(404).json({
+        success: false,
+        message: 'Perfil no encontrado'
+      });
     }
 
-    const id = providedId || Date.now().toString(); // Usar ID provisto (ej. de Supabase) o generar uno
-    const created_at = new Date().toISOString();
-
-    // 1. Insertar perfil
-    await db.runSQLite(
-      'INSERT INTO profiles (id, full_name, email, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, fullName, email, role, created_at, created_at]
-    );
-
-    // 2. Si es estudiante, insertar datos
-    if (role === 'student') {
-      await db.runSQLite(
-        'INSERT INTO students (id, user_id, academic_year, section, student_id_card, treatments_needed, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [id, id, academicYear || null, section || null, cedula, JSON.stringify(treatments || []), created_at]
-      );
-    } else if (role === 'patient') {
-      await db.runSQLite(
-        'INSERT INTO patients (id, user_id, full_name, dni, phone, address, age, gender, medical_history, consultation_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [id, id, fullName, cedula, phone || null, direccion || null, age || null, gender || null, medical_history || null, consultation_reason || null, created_at]
-      );
+    let roleData = null;
+    if (profile.role === 'student') {
+      const { data } = await db.supabase.from('students').select('*').eq('user_id', userId).maybeSingle();
+      roleData = data;
+    } else if (profile.role === 'patient') {
+      // El esquema puede tener user_id o id en patients. Usamos or.
+      const { data } = await db.supabase.from('patients').select('*').or(`user_id.eq.${userId},id.eq.${userId}`).maybeSingle();
+      roleData = data;
     }
 
-    return res.json({ success: true, message: 'Registro exitoso en modo local', user: { id, email, full_name: fullName, role } });
-  } catch(e) {
-    console.error('Error en registerOffline:', e);
-    return res.status(500).json({ success: false, message: 'Error al registrar en BD local' });
+    return res.json({ success: true, data: { ...profile, roleData } });
+  } catch (e) {
+    console.error('Error en getProfile:', e);
+    return res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 }
 
@@ -217,8 +134,5 @@ module.exports = {
   validateStudentRegistration,
   validatePatientRegistration,
   getProfile,
-  isValidAcademicYear,
-  loginOffline,
-  syncProfileOffline,
-  registerOffline
+  isValidAcademicYear
 };

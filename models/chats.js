@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: CHATS.JS
    Modelo de datos para el chat en tiempo real
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,28 +10,61 @@ const db = require('../config/database');
  */
 async function getConversations(userId) {
   try {
-    const sql = `
-      SELECT r.id as conversation_id, r.student_id, r.patient_id, r.status,
-             s.full_name as student_name, s.avatar_url as student_avatar,
-             p.full_name as patient_name, p.avatar_url as patient_avatar
-      FROM requests r
-      LEFT JOIN profiles s ON r.student_id = s.id
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      WHERE (r.student_id = ? OR r.patient_id = ?)
-        AND r.status IN ('accepted', 'active', 'completed')
-    `;
-    const requests = await db.querySQLite(sql, [userId, userId]);
-    
-    // Formatear simulando el response original de Supabase
-    return requests.map(r => ({
-      id: r.conversation_id,
-      student_id: r.student_id,
-      patient_id: r.patient_id,
-      status: r.status,
-      student: { id: r.student_id, full_name: r.student_name, avatar_url: r.student_avatar },
-      patient: { id: r.patient_id, full_name: r.patient_name, avatar_url: r.patient_avatar }
-    }));
+    // 1. Obtener solicitudes aceptadas/activas
+    const { data: reqs, error: reqsError } = await db.supabase
+      .from('requests')
+      .select('id, student_id, patient_id, status, student:student_id(id, full_name, avatar_url), patient:patient_id(id, full_name, avatar_url)')
+      .or(`student_id.eq.${userId},patient_id.eq.${userId}`)
+      .in('status', ['accepted', 'active', 'completed']);
+
+    if (reqsError) throw reqsError;
+    if (!reqs || reqs.length === 0) return [];
+
+    const reqIds = reqs.map(r => r.id);
+
+    // 2. Obtener conversaciones existentes
+    const { data: convs } = await db.supabase
+      .from('conversations')
+      .select('id, request_id')
+      .in('request_id', reqIds);
+
+    const existingConvs = convs || [];
+    const convsByReqId = {};
+    existingConvs.forEach(c => convsByReqId[c.request_id] = c);
+
+    // 3. Crear las que falten
+    for (const r of reqs) {
+      if (!convsByReqId[r.id]) {
+        const { data: newConv } = await db.supabase
+          .from('conversations')
+          .insert({ request_id: r.id })
+          .select('id, request_id')
+          .single();
+        if (newConv) {
+          convsByReqId[r.id] = newConv;
+        }
+      }
+    }
+
+    // 4. Mapear al formato esperado
+    return reqs.map(r => {
+      const conv = convsByReqId[r.id];
+      if (!conv) return null;
+      
+      const student = Array.isArray(r.student) ? r.student[0] : r.student;
+      const patient = Array.isArray(r.patient) ? r.patient[0] : r.patient;
+
+      return {
+        id: conv.id, // REAL conversation ID
+        student_id: r.student_id,
+        patient_id: r.patient_id,
+        status: r.status,
+        student,
+        patient
+      };
+    }).filter(Boolean);
   } catch (e) {
+    console.error('Error en getConversations:', e);
     return [];
   }
 }
@@ -42,25 +74,24 @@ async function getConversations(userId) {
  */
 async function getMessages(conversationId) {
   try {
-    // Usamos el id de la solicitud como conversation_id, pero nuestra tabla SQLite no tiene conversation_id.
-    // Bueno, en SQLite la creamos como: id, sender_id, receiver_id, message, read, created_at.
-    // Vamos a guardar 'conversation_id' dentro de 'id' o crear la tabla correcta.
-    // Como no podemos alterar la tabla fácilmente sin perder datos, lo guardaremos con un prefijo o simplemente
-    // buscaremos si la tabla soporta conversation_id, si no, lo adaptamos.
+    const { data, error } = await db.supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
     
-    // Modificaremos la tabla chats si es necesario o usaremos 'chats' mapeando conversation_id a un campo.
-    // Por simplicidad en esta reescritura, y sabiendo que el chat local era un placeholder:
-    const sql = 'SELECT * FROM chats WHERE id LIKE ? ORDER BY created_at ASC';
-    const data = await db.querySQLite(sql, [conversationId + '%']);
-    
-    return data.map(m => ({
+    return (data || []).map(m => ({
       id: m.id,
-      conversation_id: conversationId,
+      conversation_id: m.conversation_id,
       sender_id: m.sender_id,
-      content: m.message,
-      created_at: m.created_at
+      content: m.content,
+      created_at: m.created_at,
+      image_url: m.image_url
     }));
   } catch (e) {
+    console.error('Error en getMessages:', e);
     return [];
   }
 }
@@ -70,27 +101,21 @@ async function getMessages(conversationId) {
  */
 async function sendMessage(conversationId, senderId, content) {
   try {
-    const msgId = conversationId + '_' + Date.now();
     const created_at = new Date().toISOString();
     
-    // receiver_id no lo tenemos directo, pero podemos inferirlo de la solicitud o dejarlo null
-    await db.runSQLite(
-      'INSERT INTO chats (id, sender_id, message, created_at) VALUES (?, ?, ?, ?)',
-      [msgId, senderId, content.trim(), created_at]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('messages').insert({
+    const { error } = await db.supabase
+      .from('messages')
+      .insert({
         conversation_id: conversationId,
         sender_id: senderId,
         content: content.trim(),
-        message_type: 'text',
         created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+      });
 
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en sendMessage:', e);
     return false;
   }
 }
@@ -100,26 +125,22 @@ async function sendMessage(conversationId, senderId, content) {
  */
 async function sendImageMessage(conversationId, senderId, imageUrl) {
   try {
-    const msgId = conversationId + '_img_' + Date.now();
     const created_at = new Date().toISOString();
     
-    await db.runSQLite(
-      'INSERT INTO chats (id, sender_id, message, created_at) VALUES (?, ?, ?, ?)',
-      [msgId, senderId, '📷 Imagen: ' + imageUrl, created_at]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('messages').insert({
+    const { error } = await db.supabase
+      .from('messages')
+      .insert({
         conversation_id: conversationId,
         sender_id: senderId,
         content: '📷 Imagen',
         image_url: imageUrl,
-        message_type: 'image',
         created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+      });
+
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en sendImageMessage:', e);
     return false;
   }
 }
@@ -129,17 +150,11 @@ async function sendImageMessage(conversationId, senderId, imageUrl) {
  */
 async function reportUser(reportData) {
   try {
-    const id = Date.now().toString();
     const created_at = new Date().toISOString();
-    // Guardamos en la tabla reports (sqlite) en lugar de user_reports
-    const content = 'Motivo: ' + reportData.motivo + ' - Obs: ' + reportData.observacion;
-    await db.runSQLite(
-      'INSERT INTO reports (id, title, content, created_by, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, 'Reporte de Usuario Chat', content, reportData.reporterId, created_at]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('user_reports').insert({
+    
+    const { error } = await db.supabase
+      .from('user_reports')
+      .insert({
         reporter_id: reportData.reporterId,
         reported_id: reportData.reportedId,
         conversation_id: reportData.conversationId,
@@ -147,11 +162,12 @@ async function reportUser(reportData) {
         observacion: reportData.observacion || null,
         status: 'pendiente',
         created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+      });
 
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en reportUser:', e);
     return false;
   }
 }
@@ -161,9 +177,19 @@ async function reportUser(reportData) {
  */
 async function getAllReports() {
   try {
-    const data = await db.querySQLite('SELECT * FROM reports ORDER BY created_at DESC');
-    return data;
+    const { data, error } = await db.supabase
+      .from('user_reports')
+      .select(`
+        *,
+        reporter:profiles!user_reports_reporter_id_fkey(full_name),
+        reported:profiles!user_reports_reported_id_fkey(full_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   } catch (e) {
+    console.error('Error en getAllReports:', e);
     return [];
   }
 }

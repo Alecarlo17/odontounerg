@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: USERS.JS
    Modelo de datos para usuarios y perfiles
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,9 +10,16 @@ const db = require('../config/database');
  */
 async function getProfileById(userId) {
   try {
-    const data = await db.getSQLite('SELECT * FROM profiles WHERE id = ?', [userId]);
+    const { data, error } = await db.supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    if (error) throw error;
     return data || null;
   } catch (e) {
+    console.error('Error en getProfileById:', e);
     return null;
   }
 }
@@ -23,16 +29,20 @@ async function getProfileById(userId) {
  */
 async function getAllProfiles(role = null) {
   try {
-    let sql = 'SELECT * FROM profiles';
-    let params = [];
+    let query = db.supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
     if (role && role !== 'all') {
-      sql += ' WHERE role = ?';
-      params.push(role);
+      query = query.eq('role', role);
     }
-    sql += ' ORDER BY created_at DESC';
-    const data = await db.querySQLite(sql, params);
+
+    const { data, error } = await query;
+    if (error) throw error;
     return data || [];
   } catch (e) {
+    console.error('Error en getAllProfiles:', e);
     return [];
   }
 }
@@ -43,22 +53,20 @@ async function getAllProfiles(role = null) {
 async function updateUserProfile(userId, profileData) {
   const updated_at = new Date().toISOString();
   try {
-    await db.runSQLite(
-      'UPDATE profiles SET full_name = ?, phone = ?, disponibilidad = ?, updated_at = ? WHERE id = ?',
-      [profileData.fullName, profileData.phone, profileData.disponibilidad, updated_at, userId]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('profiles').update({
+    const { error } = await db.supabase
+      .from('profiles')
+      .update({
         full_name: profileData.fullName,
         phone: profileData.phone,
         disponibilidad: profileData.disponibilidad,
         updated_at: updated_at
-      }).eq('id', userId).then(()=>{}).catch(()=>{});
-    }
+      })
+      .eq('id', userId);
 
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en updateUserProfile:', e);
     return false;
   }
 }
@@ -68,9 +76,15 @@ async function updateUserProfile(userId, profileData) {
  */
 async function countByRole(role) {
   try {
-    const data = await db.getSQLite('SELECT COUNT(*) as count FROM profiles WHERE role = ?', [role]);
-    return data ? data.count : 0;
+    const { count, error } = await db.supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', role);
+      
+    if (error) throw error;
+    return count || 0;
   } catch (e) {
+    console.error('Error en countByRole:', e);
     return 0;
   }
 }
@@ -80,13 +94,15 @@ async function countByRole(role) {
  */
 async function deleteProfile(userId) {
   try {
-    await db.runSQLite('DELETE FROM profiles WHERE id = ?', [userId]);
+    const { error } = await db.supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
 
-    if (await db.getStatus()) {
-      db.supabase.from('profiles').delete().eq('id', userId).then(()=>{}).catch(()=>{});
-    }
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en deleteProfile:', e);
     return false;
   }
 }

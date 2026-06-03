@@ -67,12 +67,19 @@ async function loadDashboardData() {
 async function loadStats() {
   const userId = currentUser.user.id;
 
-  // Contar pacientes asignados (solicitudes aceptadas)
-  const { count: patientsCount } = await supabase
-    .from('requests')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', userId)
-    .in('status', ['accepted', 'active']);
+  // Obtener perfil público que tiene el conteo de activos y promedio
+  let avgRating = 0;
+  let activePatients = 0;
+  try {
+    const res = await fetch(`/api/profile/${userId}/public-student`);
+    const json = await res.json();
+    if (json.success) {
+      avgRating = json.data.avgRating || 0;
+      activePatients = json.data.activePatients || 0;
+    }
+  } catch (e) {
+    console.error('Error fetching profile stats', e);
+  }
 
   // Contar solicitudes pendientes
   const { count: pendingCount } = await supabase
@@ -98,25 +105,19 @@ async function loadStats() {
     appointmentsCount = count || 0;
   }
 
-  // Contar tratamientos
-  const { count: treatmentsCount } = await supabase
-    .from('treatments')
-    .select('*', { count: 'exact', head: true })
-    .eq('student_id', userId);
-
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card">
       <div class="stat-icon blue"><i data-lucide="users"></i></div>
       <div class="stat-info">
-        <div class="stat-label">Pacientes Asignados</div>
-        <div class="stat-value">${patientsCount || 0}</div>
+        <div class="stat-label">Pacientes Activos</div>
+        <div class="stat-value" style="${activePatients >= 3 ? 'color:var(--danger)' : ''}">${activePatients}/3</div>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon orange"><i data-lucide="mail"></i></div>
+      <div class="stat-icon orange"><i data-lucide="star"></i></div>
       <div class="stat-info">
-        <div class="stat-label">Solicitudes Pendientes</div>
-        <div class="stat-value">${pendingCount || 0}</div>
+        <div class="stat-label">Promedio de Calificación</div>
+        <div class="stat-value">${avgRating.toFixed(1)}/5</div>
       </div>
     </div>
     <div class="stat-card">
@@ -127,10 +128,10 @@ async function loadStats() {
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon cyan"><i data-lucide="clipboard-list"></i></div>
+      <div class="stat-icon cyan"><i data-lucide="mail"></i></div>
       <div class="stat-info">
-        <div class="stat-label">Tratamientos</div>
-        <div class="stat-value">${treatmentsCount || 0}</div>
+        <div class="stat-label">Solicitudes Pendientes</div>
+        <div class="stat-value">${pendingCount || 0}</div>
       </div>
     </div>
   `;
@@ -372,6 +373,11 @@ async function loadStudentRequestsList(status = null) {
     if (messageStr.startsWith('[FromStudent]')) {
       messageStr = messageStr.replace('[FromStudent]', '').trim();
     }
+    let actionsStr = '';
+    if (req.status === 'accepted' || req.status === 'active') {
+      actionsStr = `<button class="btn btn-sm btn-success" onclick="handleDischarge('${req.id}')" style="margin-top:0.5rem;">Dar de Alta</button>`;
+    }
+
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
         <div class="card-body" style="display:flex;align-items:center;gap:1rem;">
@@ -383,11 +389,37 @@ async function loadStudentRequestsList(status = null) {
             </div>
             <p style="font-size:0.85rem;color:var(--text-secondary);">${escapeHTML(messageStr)}</p>
             <p style="font-size:0.75rem;color:var(--text-muted);">${timeAgo(req.created_at)}</p>
+            ${actionsStr}
           </div>
         </div>
       </div>
     `;
   }).join('');
+}
+
+/**
+ * Dar de alta al paciente
+ */
+async function handleDischarge(requestId) {
+  const ok = await confirmAction('Dar de Alta', '¿Está seguro de que desea dar de alta al paciente? El tratamiento debe estar finalizado.');
+  if (ok) {
+    try {
+      const res = await fetch(`/api/requests/${requestId}/discharge`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast('Paciente dado de alta', 'success');
+        loadStudentRequestsList();
+        loadStats();
+      } else {
+        showToast(json.message || 'Error al dar de alta', 'error');
+      }
+    } catch (e) {
+      showToast('Error de conexión', 'error');
+    }
+  }
 }
 
 /**

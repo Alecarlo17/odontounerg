@@ -111,33 +111,6 @@ app.use('/api/profiles', profileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/ratings', ratingRoutes);
 
-// Ruta offline para estudiantes
-app.get('/api/students/available', async (req, res) => {
-  const db = require('./config/database');
-  try {
-    let sql = `
-      SELECT p.id as profile_id, p.*, stu.* 
-      FROM profiles p 
-      INNER JOIN students stu ON p.id = stu.user_id 
-      WHERE p.role = 'student' AND p.disponibilidad = 'disponible'
-    `;
-    const data = await db.querySQLite(sql);
-    const formatted = data.map(row => {
-      return {
-        id: row.profile_id,
-        full_name: row.full_name,
-        role: row.role,
-        disponibilidad: row.disponibilidad,
-        avatar_url: row.avatar_url || null,
-        students: row
-      };
-    });
-    return res.json({ success: true, data: formatted });
-  } catch (e) {
-    console.error(e);
-    return res.json({ success: false, data: [] });
-  }
-});
 
 /* =============================================
    MANEJO DE ERRORES

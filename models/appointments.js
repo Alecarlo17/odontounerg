@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: APPOINTMENTS.JS
    Modelo de datos para citas odontológicas
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,16 +10,11 @@ const db = require('../config/database');
  */
 async function createAppointment(citaData) {
   try {
-    const id = Date.now().toString(); // simple ID gen
     const created_at = new Date().toISOString();
-    await db.runSQLite(
-      'INSERT INTO appointments (id, request_id, proposed_by, date, duration_minutes, location, status, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, citaData.requestId, citaData.proposedBy, citaData.date, citaData.duration || 60, citaData.location || null, 'proposed', citaData.notes || null, created_at]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('appointments').insert({
-        id,
+    
+    const { data, error } = await db.supabase
+      .from('appointments')
+      .insert({
         request_id: citaData.requestId,
         proposed_by: citaData.proposedBy,
         date: citaData.date,
@@ -29,11 +23,14 @@ async function createAppointment(citaData) {
         notes: citaData.notes || null,
         status: 'proposed',
         created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+      })
+      .select('id')
+      .single();
 
-    return { id, request_id: citaData.requestId, status: 'proposed' };
+    if (error) throw error;
+    return { id: data?.id, request_id: citaData.requestId, status: 'proposed' };
   } catch (e) {
+    console.error('Error en createAppointment:', e);
     return null;
   }
 }
@@ -43,34 +40,50 @@ async function createAppointment(citaData) {
  */
 async function getAppointmentsByUser(userId, status = null) {
   try {
-    let sql = `
-      SELECT a.*, r.student_id, r.patient_id, s.full_name as student_name, s.email as student_email, s.avatar_url as student_avatar,
-             p.full_name as patient_name, p.email as patient_email, p.avatar_url as patient_avatar
-      FROM appointments a 
-      JOIN requests r ON a.request_id = r.id 
-      LEFT JOIN profiles s ON r.student_id = s.id
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      WHERE (r.student_id = ? OR r.patient_id = ?)
-    `;
-    let params = [userId, userId];
+    // Primero obtener los requests relacionados con el usuario
+    const { data: userRequests, error: reqError } = await db.supabase
+      .from('requests')
+      .select('id')
+      .or(`student_id.eq.${userId},patient_id.eq.${userId}`);
+      
+    if (reqError) throw reqError;
+    if (!userRequests || userRequests.length === 0) return [];
     
+    const requestIds = userRequests.map(r => r.id);
+
+    let query = db.supabase
+      .from('appointments')
+      .select(`
+        *,
+        request:requests(
+          student_id,
+          patient_id,
+          student:student_id(id, full_name, email, avatar_url),
+          patient:patient_id(id, full_name, email, avatar_url)
+        )
+      `)
+      .in('request_id', requestIds)
+      .order('date', { ascending: true });
+
     if (status) {
-      sql += ' AND a.status = ?';
-      params.push(status);
+      query = query.eq('status', status);
     }
-    sql += ' ORDER BY a.date ASC';
-    const data = await db.querySQLite(sql, params);
+
+    const { data, error } = await query;
+    if (error) throw error;
     
-    return data.map(a => ({
-      ...a,
-      request: {
-        student_id: a.student_id,
-        patient_id: a.patient_id,
-        student: { id: a.student_id, full_name: a.student_name, email: a.student_email, avatar_url: a.student_avatar },
-        patient: { id: a.patient_id, full_name: a.patient_name, email: a.patient_email, avatar_url: a.patient_avatar }
-      }
-    }));
+    // Normalizar la respuesta al formato esperado por el frontend
+    return (data || []).map(a => {
+      // Supabase retorna array si la foreign key no es unívoca desde su perspectiva o si usa view,
+      // extraemos el primer elemento si request viene como array.
+      const req = Array.isArray(a.request) ? a.request[0] : a.request;
+      return {
+        ...a,
+        request: req
+      };
+    });
   } catch (e) {
+    console.error('Error en getAppointmentsByUser:', e);
     return [];
   }
 }
@@ -80,13 +93,15 @@ async function getAppointmentsByUser(userId, status = null) {
  */
 async function updateAppointmentStatus(appointmentId, newStatus) {
   try {
-    await db.runSQLite('UPDATE appointments SET status = ? WHERE id = ?', [newStatus, appointmentId]);
-    
-    if (await db.getStatus()) {
-      db.supabase.from('appointments').update({ status: newStatus }).eq('id', appointmentId).then(()=>{}).catch(()=>{});
-    }
+    const { error } = await db.supabase
+      .from('appointments')
+      .update({ status: newStatus })
+      .eq('id', appointmentId);
+      
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en updateAppointmentStatus:', e);
     return false;
   }
 }
@@ -96,23 +111,28 @@ async function updateAppointmentStatus(appointmentId, newStatus) {
  */
 async function getAllAppointments() {
   try {
-    const sql = `
-      SELECT a.*, s.full_name as student_name, p.full_name as patient_name
-      FROM appointments a
-      LEFT JOIN requests r ON a.request_id = r.id
-      LEFT JOIN profiles s ON r.student_id = s.id
-      LEFT JOIN profiles p ON r.patient_id = p.id
-      ORDER BY a.date DESC
-    `;
-    const data = await db.querySQLite(sql);
-    return data.map(a => ({
-      ...a,
-      request: {
-        student: { full_name: a.student_name },
-        patient: { full_name: a.patient_name }
-      }
-    }));
+    const { data, error } = await db.supabase
+      .from('appointments')
+      .select(`
+        *,
+        request:requests(
+          student:student_id(full_name),
+          patient:patient_id(full_name)
+        )
+      `)
+      .order('date', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(a => {
+      const req = Array.isArray(a.request) ? a.request[0] : a.request;
+      return {
+        ...a,
+        request: req
+      };
+    });
   } catch (e) {
+    console.error('Error en getAllAppointments:', e);
     return [];
   }
 }

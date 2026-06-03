@@ -14,19 +14,9 @@
  * Redirigir al dashboard correspondiente si ya tiene sesión
  */
 async function checkAuthAndRedirect() {
-  const offlineSession = localStorage.getItem('offline_session');
-  if (offlineSession) {
-    try {
-      const data = JSON.parse(offlineSession);
-      if (data.user && data.user.role) {
-        redirectByRole(data.user.role);
-        return;
-      }
-    } catch (e) {}
-  }
-
   const client = window.supabaseClient || supabase;
   const { data: { session } } = await client.auth.getSession();
+  
   if (session) {
     const { data: profile } = await client
       .from('profiles')
@@ -79,47 +69,6 @@ async function loginUser(email, password) {
 
   showLoading(true);
 
-  // INTENTAR MODO LOCAL SIEMPRE PRIMERO PARA EVITAR LENTITUD
-  try {
-   async function updateProfile(userId, data) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    await client.from('profiles').update({
-      full_name: data.fullName,
-      phone: data.phone,
-      disponibilidad: data.disponibilidad,
-      updated_at: new Date().toISOString()
-    }).eq('id', userId);
-  }
-  await fetch('/api/auth/sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      id: userId,
-      full_name: data.fullName,
-      phone: data.phone,
-      disponibilidad: data.disponibilidad
-    })
-  });
-}  if (data.success) {
-      showLoading(false);
-      showToast('Inicio de sesión exitoso', 'success');
-      localStorage.setItem('offline_session', JSON.stringify({ user: data.user }));
-      setTimeout(() => redirectByRole(data.user.role), 500);
-      return;
-    }
-  } catch(err) {
-    console.warn('Fallback al modo local falló, intentando online');
-  }
-
-  // SI FALLA EL MODO LOCAL, INTENTAR ONLINE
-  if (!navigator.onLine) {
-    showLoading(false);
-    showToast('Modo offline: Usuario no encontrado localmente', 'error');
-    return;
-  }
-
-  // MODO ONLINE NORMAL
   try {
     const { data, error } = await client.auth.signInWithPassword({
       email: email.trim(),
@@ -152,22 +101,8 @@ async function loginUser(email, password) {
       return;
     }
 
-    // Sincronizar perfil localmente para modo offline
-    try {
-      fetch('/api/auth/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
-      });
-    } catch (e) {
-      console.warn('No se pudo sincronizar el perfil offline', e);
-    }
-
     showLoading(false);
     showToast('Inicio de sesión exitoso', 'success');
-
-    // Remove offline session if it exists
-    localStorage.removeItem('offline_session');
 
     setTimeout(() => {
       redirectByRole(profile.role);
@@ -209,68 +144,40 @@ async function registerStudent(formData) {
 
   showLoading(true);
   try {
-    let finalId = null;
-    let formDataObj = {
-      fullName: formData.fullName,
+    const client = window.supabaseClient || supabase;
+    const { data, error } = await client.auth.signUp({
       email: formData.email.trim(),
       password: formData.password,
-      role: 'student',
-      cedula: formData.cedula,
-      academicYear: formData.academicYear || null,
-      section: formData.section || null,
-      treatments: formData.treatments || []
-    };
-
-    if (navigator.onLine) {
-      const client = window.supabaseClient || supabase;
-      const { data, error } = await client.auth.signUp({
-        email: formDataObj.email,
-        password: formDataObj.password,
-        options: { data: { full_name: formDataObj.fullName, role: formDataObj.role } }
-      });
-
-      if (error) {
-        showLoading(false);
-        showToast('Error en registro online: ' + error.message, 'error');
-        return;
-      }
-      
-      finalId = data.user.id;
-      formDataObj.id = finalId;
-
-      await client.from('profiles').upsert({
-        id: finalId,
-        full_name: formDataObj.fullName,
-        email: formDataObj.email,
-        role: formDataObj.role,
-        disponibilidad: 'disponible',
-        updated_at: new Date().toISOString()
-      });
-
-      await client.from('students').upsert({
-        id: finalId,
-        user_id: finalId,
-        student_id_card: formDataObj.cedula,
-        academic_year: formDataObj.academicYear,
-        section: formDataObj.section,
-        treatments_needed: JSON.stringify(formDataObj.treatments)
-      });
-    }
-
-    const res = await fetch('/api/auth/register-offline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formDataObj)
+      options: { data: { full_name: formData.fullName, role: 'student' } }
     });
-    
-    const json = await res.json();
-    showLoading(false);
-    
-    if (!json.success && !finalId) {
-      showToast('Error en registro: ' + json.message, 'error');
+
+    if (error) {
+      showLoading(false);
+      showToast('Error en registro: ' + error.message, 'error');
       return;
     }
+    
+    const finalId = data.user.id;
 
+    await client.from('profiles').upsert({
+      id: finalId,
+      full_name: formData.fullName,
+      email: formData.email.trim(),
+      role: 'student',
+      disponibilidad: 'disponible',
+      updated_at: new Date().toISOString()
+    });
+
+    await client.from('students').upsert({
+      id: finalId,
+      user_id: finalId,
+      student_id_card: formData.cedula,
+      academic_year: formData.academicYear || null,
+      section: formData.section || null,
+      treatments_needed: JSON.stringify(formData.treatments || [])
+    });
+
+    showLoading(false);
     showToast('Registro exitoso. Iniciando sesión...', 'success');
     
     // Auto-login
@@ -314,77 +221,46 @@ async function registerPatient(formData) {
 
   showLoading(true);
   try {
-    let finalId = null;
-    let formDataObj = {
-      fullName: formData.fullName,
+    const client = window.supabaseClient || supabase;
+    const { data, error } = await client.auth.signUp({
       email: formData.email.trim(),
       password: formData.password,
-      role: 'patient',
-      cedula: formData.cedula,
-      age: formData.age || null,
-      phone: formData.phone || null,
-      direccion: formData.direccion || null,
-      medical_history: formData.medicalHistory || null,
-      consultation_reason: formData.consultationReason || null,
-      gender: formData.gender || null
-    };
-
-    if (navigator.onLine) {
-      const client = window.supabaseClient || supabase;
-      const { data, error } = await client.auth.signUp({
-        email: formDataObj.email,
-        password: formDataObj.password,
-        options: { data: { full_name: formDataObj.fullName, role: formDataObj.role } }
-      });
-
-      if (error) {
-        showLoading(false);
-        showToast('Error en registro online: ' + error.message, 'error');
-        return;
-      }
-      
-      finalId = data.user.id;
-      formDataObj.id = finalId;
-
-      await client.from('profiles').upsert({
-        id: finalId,
-        full_name: formDataObj.fullName,
-        email: formDataObj.email,
-        role: formDataObj.role,
-        disponibilidad: 'disponible',
-        phone: formDataObj.phone,
-        updated_at: new Date().toISOString()
-      });
-
-      await client.from('patients').upsert({
-        id: finalId,
-        user_id: finalId,
-        full_name: formDataObj.fullName,
-        dni: formDataObj.cedula,
-        phone: formDataObj.phone,
-        address: formDataObj.direccion,
-        age: formDataObj.age,
-        gender: formDataObj.gender,
-        medical_history: formDataObj.medical_history,
-        consultation_reason: formDataObj.consultation_reason,
-        accepts_requests: true
-      });
-    }
-
-    const res = await fetch('/api/auth/register-offline', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formDataObj)
+      options: { data: { full_name: formData.fullName, role: 'patient' } }
     });
-    
-    const json = await res.json();
-    showLoading(false);
-    
-    if (!json.success && !finalId) {
-      showToast('Error en registro: ' + json.message, 'error');
+
+    if (error) {
+      showLoading(false);
+      showToast('Error en registro: ' + error.message, 'error');
       return;
     }
+    
+    const finalId = data.user.id;
 
+    await client.from('profiles').upsert({
+      id: finalId,
+      full_name: formData.fullName,
+      email: formData.email.trim(),
+      role: 'patient',
+      disponibilidad: 'disponible',
+      phone: formData.phone || null,
+      updated_at: new Date().toISOString()
+    });
+
+    await client.from('patients').upsert({
+      id: finalId,
+      user_id: finalId,
+      full_name: formData.fullName,
+      dni: formData.cedula,
+      phone: formData.phone || null,
+      address: formData.direccion || null,
+      age: formData.age || null,
+      gender: formData.gender || null,
+      medical_history: formData.medicalHistory || null,
+      consultation_reason: formData.consultationReason || null,
+      accepts_requests: true
+    });
+
+    showLoading(false);
     showToast('Registro exitoso. Iniciando sesión...', 'success');
     
     // Auto-login
@@ -440,9 +316,6 @@ async function logout() {
       clearInterval(window._sessionWatcherInterval);
     }
     
-    // Limpiar sesión offline
-    localStorage.removeItem('offline_session');
-
     await client.auth.signOut();
     showLoading(false);
     navigateTo('/login');
@@ -459,34 +332,6 @@ async function logout() {
  * @returns {object|null} - Datos del usuario o null
  */
 async function requireAuth() {
-  const offlineSession = localStorage.getItem('offline_session');
-  
-  // Si existe una sesión local, la respetamos como prioritaria
-  if (offlineSession) {
-    try {
-      const data = JSON.parse(offlineSession);
-      
-      // Fetch roleData completely
-      let roleData = null;
-      try {
-        const res = await fetch('/api/auth/profile/' + data.user.id);
-        const json = await res.json();
-        if (json.success && json.data) {
-          roleData = json.data.roleData;
-        }
-      } catch (e) {}
-
-      return { user: data.user, profile: data.user, roleData: roleData };
-    } catch (e) {
-      console.warn('Error parsing offline session', e);
-    }
-  }
-
-  if (!navigator.onLine) {
-    navigateTo('/login');
-    return null;
-  }
-
   const client = window.supabaseClient || supabase;
   const { data: { session } } = await client.auth.getSession();
 
@@ -592,53 +437,9 @@ function setupSessionWatcher(session) {
  * @returns {object|null}
  */
 async function getCurrentUser() {
-  const offlineSession = localStorage.getItem('offline_session');
-  
-  // 1. PRIORIDAD MÁXIMA: MODO LOCAL (SQLite)
-  // Si existe una sesión local, se usa de inmediato para evitar retrasos
-  if (offlineSession) {
-    try {
-      const sessionData = JSON.parse(offlineSession);
-      const userId = sessionData.user.id;
-      const role = sessionData.user.role;
-      
-      let roleData = null;
-      let profile = null;
-      if (role === 'patient') {
-        const res = await fetch(`/api/patients/${userId}`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          profile = json.data;
-          roleData = {
-            age: json.data.age,
-            direccion: json.data.address,
-            consultation_reason: json.data.consultation_reason,
-            medical_history: json.data.medical_history,
-            gender: json.data.gender
-          };
-        }
-      } else if (role === 'student') {
-        const res = await fetch(`/api/profiles/${userId}/public-student`);
-        const json = await res.json();
-        if (json.success && json.data) {
-          profile = json.data.profile;
-          roleData = json.data.student;
-        }
-      } else {
-        profile = sessionData.user;
-      }
-      return { user: sessionData.user, profile, roleData };
-    } catch (e) {
-      console.warn('Fallo al obtener usuario localmente', e);
-      // Falla silenciosa, intentará Supabase abajo si hay red
-    }
-  }
-
-  // 2. FALLBACK: MODO ONLINE (Supabase)
-  if (!navigator.onLine) return null;
-
   const client = window.supabaseClient || supabase;
   const { data: { session } } = await client.auth.getSession();
+  
   if (!session) return null;
 
   const { data: profile } = await client

@@ -7,9 +7,17 @@ const db = require('../config/database');
 async function loadNotifications(req, res) {
   const { userId } = req.params;
   try {
-    const data = await db.querySQLite('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20', [userId]);
+    const { data, error } = await db.supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) throw error;
     return res.json({ success: true, data: data || [] });
   } catch(e) {
+    console.error('Error in loadNotifications:', e);
     return res.status(500).json({ success: false, data: [] });
   }
 }
@@ -17,9 +25,16 @@ async function loadNotifications(req, res) {
 async function countUnread(req, res) {
   const { userId } = req.params;
   try {
-    const data = await db.getSQLite('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND leida = 0', [userId]);
-    return res.json({ success: true, count: data ? data.count : 0 });
+    const { count, error } = await db.supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('leida', false);
+
+    if (error) throw error;
+    return res.json({ success: true, count: count || 0 });
   } catch(e) {
+    console.error('Error in countUnread:', e);
     return res.status(500).json({ success: false, count: 0 });
   }
 }
@@ -27,12 +42,15 @@ async function countUnread(req, res) {
 async function markRead(req, res) {
   const { id } = req.params;
   try {
-    await db.runSQLite('UPDATE notifications SET leida = 1 WHERE id = ?', [id]);
-    if (await db.getStatus()) {
-      db.supabase.from('notifications').update({ leida: true }).eq('id', id).then(()=>{}).catch(()=>{});
-    }
+    const { error } = await db.supabase
+      .from('notifications')
+      .update({ leida: true })
+      .eq('id', id);
+
+    if (error) throw error;
     return res.json({ success: true });
   } catch(e) {
+    console.error('Error in markRead:', e);
     return res.status(500).json({ success: false });
   }
 }
@@ -40,12 +58,16 @@ async function markRead(req, res) {
 async function markAllRead(req, res) {
   const { userId } = req.params;
   try {
-    await db.runSQLite('UPDATE notifications SET leida = 1 WHERE user_id = ? AND leida = 0', [userId]);
-    if (await db.getStatus()) {
-      db.supabase.from('notifications').update({ leida: true }).eq('user_id', userId).eq('leida', false).then(()=>{}).catch(()=>{});
-    }
+    const { error } = await db.supabase
+      .from('notifications')
+      .update({ leida: true })
+      .eq('user_id', userId)
+      .eq('leida', false);
+
+    if (error) throw error;
     return res.json({ success: true });
   } catch(e) {
+    console.error('Error in markAllRead:', e);
     return res.status(500).json({ success: false });
   }
 }
@@ -55,18 +77,24 @@ async function createNotification(req, res) {
   try {
     const id = Date.now().toString();
     const created_at = new Date().toISOString();
-    await db.runSQLite(
-      'INSERT INTO notifications (id, user_id, tipo, titulo, mensaje, referencia_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, userId, tipo, titulo, mensaje, referenciaId || null, created_at]
-    );
+    
+    const { error } = await db.supabase
+      .from('notifications')
+      .insert({
+        id, 
+        user_id: userId, 
+        tipo, 
+        titulo, 
+        mensaje, 
+        referencia_id: referenciaId || null, 
+        created_at,
+        leida: false
+      });
 
-    if (await db.getStatus()) {
-      db.supabase.from('notifications').insert({
-        id, user_id: userId, tipo, titulo, mensaje, referencia_id: referenciaId, created_at
-      }).then(()=>{}).catch(()=>{});
-    }
+    if (error) throw error;
     return res.json({ success: true });
   } catch(e) {
+    console.error('Error in createNotification:', e);
     return res.status(500).json({ success: false });
   }
 }

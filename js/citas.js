@@ -6,23 +6,6 @@
  * Crear nueva cita
  */
 async function createAppointment(citaData) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { error } = await client.from('appointments').insert({
-      request_id: citaData.requestId,
-      proposed_by: citaData.proposedBy,
-      date: citaData.date,
-      duration_minutes: citaData.duration || 60,
-      location: citaData.location || null,
-      notes: citaData.notes || null,
-      status: 'proposed'
-    });
-    if (error) {
-      showToast('Error al crear cita en línea', 'error');
-      return false;
-    }
-  }
-
   try {
     const res = await fetch('/api/appointments', {
       method: 'POST',
@@ -37,18 +20,15 @@ async function createAppointment(citaData) {
       })
     });
     const json = await res.json();
-    if (!json.success && !navigator.onLine) {
+    if (!json.success) {
       showToast(json.message || 'Error al crear cita', 'error');
       return false;
     }
     showToast('Cita creada exitosamente', 'success');
     return true;
   } catch (error) {
-    if (!navigator.onLine) {
-      showToast('Error de conexión', 'error');
-      return false;
-    }
-    return true;
+    showToast('Error de conexión', 'error');
+    return false;
   }
 }
 
@@ -56,29 +36,13 @@ async function createAppointment(citaData) {
  * Obtener citas del usuario
  */
 async function getAppointments(userId, status = null) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    
-    // First get the user's requests
-    const { data: requests } = await client.from('requests').select('id').or(`student_id.eq.${userId},patient_id.eq.${userId}`);
-    if (!requests || requests.length === 0) return [];
-    
-    const reqIds = requests.map(r => r.id);
-    let query = client.from('appointments').select('*, request:request_id(*, student:student_id(id, full_name, email, avatar_url, phone), patient:patient_id(id, full_name, email, avatar_url, phone))').in('request_id', reqIds).order('date', { ascending: true });
-    
-    if (status) query = query.eq('status', status);
-    
-    const { data } = await query;
-    return data || [];
-  } else {
-    try {
-      const url = status ? `/api/appointments/user/${userId}?status=${status}` : `/api/appointments/user/${userId}`;
-      const res = await fetch(url);
-      const json = await res.json();
-      return json.data || [];
-    } catch (error) {
-      return [];
-    }
+  try {
+    const url = status ? `/api/appointments/user/${userId}?status=${status}` : `/api/appointments/user/${userId}`;
+    const res = await fetch(url);
+    const json = await res.json();
+    return json.data || [];
+  } catch (error) {
+    return [];
   }
 }
 
@@ -86,26 +50,18 @@ async function getAppointments(userId, status = null) {
  * Confirmar cita
  */
 async function confirmAppointment(appointmentId) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { error } = await client.from('appointments').update({ status: 'confirmed' }).eq('id', appointmentId);
-    if (error) return false;
-  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/confirm`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success && !navigator.onLine) {
+    if (!json.success) {
       showToast(json.message || 'Error al confirmar cita', 'error');
       return false;
     }
     showToast('Cita confirmada', 'success');
     return true;
   } catch (error) {
-    if (!navigator.onLine) {
-      showToast('Error de conexión', 'error');
-      return false;
-    }
-    return true;
+    showToast('Error de conexión', 'error');
+    return false;
   }
 }
 
@@ -113,26 +69,18 @@ async function confirmAppointment(appointmentId) {
  * Cancelar cita
  */
 async function cancelAppointment(appointmentId) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { error } = await client.from('appointments').update({ status: 'cancelled' }).eq('id', appointmentId);
-    if (error) return false;
-  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/cancel`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success && !navigator.onLine) {
+    if (!json.success) {
       showToast(json.message || 'Error al cancelar cita', 'error');
       return false;
     }
     showToast('Cita cancelada', 'success');
     return true;
   } catch (error) {
-    if (!navigator.onLine) {
-      showToast('Error de conexión', 'error');
-      return false;
-    }
-    return true;
+    showToast('Error de conexión', 'error');
+    return false;
   }
 }
 
@@ -140,26 +88,18 @@ async function cancelAppointment(appointmentId) {
  * Completar cita
  */
 async function completeAppointment(appointmentId) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { error } = await client.from('appointments').update({ status: 'completed' }).eq('id', appointmentId);
-    if (error) return false;
-  }
   try {
     const res = await fetch(`/api/appointments/${appointmentId}/complete`, { method: 'PUT' });
     const json = await res.json();
-    if (!json.success && !navigator.onLine) {
+    if (!json.success) {
       showToast(json.message || 'Error al finalizar cita', 'error');
       return false;
     }
     showToast('Cita finalizada', 'success');
     return true;
   } catch (error) {
-    if (!navigator.onLine) {
-      showToast('Error de conexión', 'error');
-      return false;
-    }
-    return true;
+    showToast('Error de conexión', 'error');
+    return false;
   }
 }
 
@@ -189,7 +129,7 @@ function renderAppointmentCard(appointment, currentUserId) {
     `;
   } else if (appointment.status === 'confirmed') {
     actions = `
-      <button class="btn btn-primary btn-sm" onclick="handleCompleteAppointment('${appointment.id}')">Finalizar</button>
+      ${isStudent ? `<button class="btn btn-primary btn-sm" onclick="handleCompleteAppointment('${appointment.id}')">Finalizar</button>` : ''}
       <button class="btn btn-danger btn-sm" onclick="handleCancelAppointment('${appointment.id}')">Cancelar</button>
     `;
   }

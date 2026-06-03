@@ -45,26 +45,12 @@ async function loadStats() {
   const userId = currentUser.user.id;
   let stats = { pendingRequests: 0, acceptedRequests: 0, activeAppointments: 0 };
   
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { count: pReq } = await client.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'pending');
-    const { count: aReq } = await client.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).in('status', ['accepted', 'active']);
-    
-    const { data: reqs } = await client.from('requests').select('id').eq('patient_id', userId);
-    let appts = 0;
-    if (reqs && reqs.length > 0) {
-      const { count: cAppt } = await client.from('appointments').select('*', { count: 'exact', head: true }).in('request_id', reqs.map(r=>r.id)).in('status', ['proposed', 'confirmed']);
-      appts = cAppt || 0;
-    }
-    stats = { pendingRequests: pReq || 0, acceptedRequests: aReq || 0, activeAppointments: appts };
-  } else {
-    try {
-      const res = await fetch(`/api/dashboard/patient/${userId}`);
-      const json = await res.json();
-      if (json.data) stats = json.data;
-    } catch (e) {
-      console.error('Error loading stats:', e);
-    }
+  try {
+    const res = await fetch(`/api/dashboard/patient/${userId}`);
+    const json = await res.json();
+    if (json.data) stats = json.data;
+  } catch (e) {
+    console.error('Error loading stats:', e);
   }
   
   document.getElementById('stats-grid').innerHTML = `
@@ -223,6 +209,8 @@ async function loadPatientRequestsList(status = null) {
       `;
     } else if (req.status === 'pending' && isFromPatient) {
       actions = `<span class="badge badge-warning">Enviada</span>`;
+    } else if (req.status === 'completed') {
+      actions = `<button class="btn btn-primary btn-sm" onclick="openCalificarModal('${req.student_id}')">Calificar Estudiante</button>`;
     }
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
@@ -384,6 +372,14 @@ async function loadProfileData() {
   document.getElementById('prof-direccion').value = roleData?.direccion || '';
   document.getElementById('prof-problema').value = roleData?.consultation_reason || '';
   document.getElementById('prof-antecedentes').value = roleData?.medical_history || '';
+
+  // Show floating button if patient is inactive
+  const floatingBtn = document.getElementById('btn-floating-new-case');
+  if (roleData?.accepts_requests === false || roleData?.consultation_reason === 'Sin tratamiento pendiente') {
+    floatingBtn.style.display = 'flex';
+  } else {
+    floatingBtn.style.display = 'none';
+  }
 }
 
 async function handleUpdateProfile(event) {
@@ -420,7 +416,7 @@ async function handleCalificar(event) {
   showLoading(true);
 
   try {
-    const res = await fetch('/api/ratings', {
+    const res = await fetch('/api/dashboard/ratings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -437,13 +433,79 @@ async function handleCalificar(event) {
     showToast('Calificación enviada exitosamente', 'success');
     closeModal('modal-calificar');
     document.getElementById('calificar-comentario').value = '';
+    
+    // Open re-entry question modal
+    document.getElementById('modal-reingreso-pregunta').classList.add('active');
+
   } catch (e) {
     showLoading(false);
     showToast(e.message || 'Error al enviar calificación', 'error');
   }
 }
 
-function viewStudentProfile(studentId) {
+async function handleReingresoOption(option) {
+  closeModal('modal-reingreso-pregunta');
+  if (option === 'no') {
+    showLoading(true);
+    try {
+      const res = await fetch(`/api/profile/${currentUser.user.id}/patient/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          acceptsRequests: false,
+          consultationReason: 'Sin tratamiento pendiente'
+        })
+      });
+      showLoading(false);
+      showToast('Estado actualizado. Ya no aparecerás en las búsquedas de estudiantes.', 'success');
+      loadProfileData(); // this will show the floating button
+    } catch (e) {
+      showLoading(false);
+      showToast('Error al actualizar estado', 'error');
+    }
+  } else if (option === 'si') {
+    openNuevoCasoModal();
+  }
+}
+
+function openNuevoCasoModal() {
+  document.getElementById('modal-nuevo-caso').classList.add('active');
+}
+
+async function handleSubmitNuevoCaso(event) {
+  event.preventDefault();
+  const problema = document.getElementById('new-case-problema').value;
+  const descripcion = document.getElementById('new-case-descripcion').value;
+  const disponibilidad = document.getElementById('new-case-disponibilidad').value;
+
+  showLoading(true);
+  try {
+    // 1. Update patient status
+    const res = await fetch(`/api/profile/${currentUser.user.id}/patient/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        acceptsRequests: true,
+        consultationReason: problema,
+        medicalHistory: descripcion // adding the description to medical history or similar
+      })
+    });
+    
+    // 2. Update overall profile for disponibilidad
+    await updateProfile(currentUser.user.id, { disponibilidad });
+
+    showLoading(false);
+    showToast('Nuevo caso registrado. Ya estás visible para nuevos estudiantes.', 'success');
+    closeModal('modal-nuevo-caso');
+    document.getElementById('new-case-descripcion').value = '';
+    loadProfileData(); // this will hide the floating button
+  } catch (e) {
+    showLoading(false);
+    showToast('Error al registrar nuevo caso', 'error');
+  }
+}
+
+async function viewStudentProfile(studentId) {
   const s = allStudents.find(st => st.id === studentId);
   if (!s) {
     showToast('No se encontró información del estudiante', 'error');
@@ -482,6 +544,50 @@ function viewStudentProfile(studentId) {
     tratamientosContainer.innerHTML = tratamientos.map(t => `<span class="badge badge-outline">${escapeHTML(t)}</span>`).join('');
   } else {
     tratamientosContainer.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No especificó</span>';
+  }
+
+  // Cargar datos en vivo del perfil (estrellas y cupos)
+  try {
+    const res = await fetch(`/api/profile/${studentId}/public-student`);
+    const json = await res.json();
+    if (json.success) {
+      const avg = json.data.avgRating || 0;
+      const count = json.data.ratingsCount || 0;
+      const active = json.data.activePatients || 0;
+
+      // Generar estrellas
+      const fullStars = Math.round(avg);
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        starsHtml += `<span style="color:${i <= fullStars ? '#eab308' : 'var(--text-muted)'};font-size:1.2rem;">★</span>`;
+      }
+      starsHtml += ` <span style="font-size:0.9rem;font-weight:600;margin-left:0.5rem;">${avg.toFixed(1)}/5 (${count})</span>`;
+
+      // Insertar en un contenedor de estadísticas extra
+      let statsHtml = `
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <div style="display:flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span style="font-size:0.9rem; font-weight:600;">Reputación:</span>
+            <span>${starsHtml}</span>
+          </div>
+          <div style="display:flex; justify-content: space-between;">
+            <span style="font-size:0.9rem; font-weight:600;">Pacientes Activos:</span>
+            <span style="font-size:0.9rem; ${active >= 3 ? 'color:var(--danger);font-weight:bold;' : ''}">${active} / 3 permitidos</span>
+          </div>
+        </div>
+      `;
+      // Añadir al DOM
+      const modalBody = document.querySelector('#modal-perfil-estudiante .modal-body');
+      let extraStats = document.getElementById('perfil-estudiante-extra-stats');
+      if (!extraStats) {
+        extraStats = document.createElement('div');
+        extraStats.id = 'perfil-estudiante-extra-stats';
+        modalBody.insertBefore(extraStats, tratamientosContainer.parentNode);
+      }
+      extraStats.innerHTML = statsHtml;
+    }
+  } catch(e) {
+    console.error('Error cargando stats de estudiante', e);
   }
 
   document.getElementById('modal-perfil-estudiante').classList.add('active');

@@ -68,25 +68,34 @@ async function sendChatImage(file, conversationId, senderId) {
 
   showLoading(true);
   try {
-    // Modo Offline / MVC: Convertimos a base64
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const base64 = e.target.result;
-      
-      const res = await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, senderId, content: '📷 Imagen: ' + base64.substring(0, 50) + '...' })
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error();
-      
-      showToast('Imagen enviada', 'success');
-      showLoading(false);
-    };
-    reader.readAsDataURL(file);
+    const client = window.supabaseClient || supabase;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${conversationId}/${Date.now()}.${fileExt}`;
+    
+    const { error: uploadError } = await client.storage
+      .from('chat_images')
+      .upload(fileName, file);
+
+    if (uploadError) throw new Error('Error subiendo imagen');
+
+    const { data: urlData } = client.storage
+      .from('chat_images')
+      .getPublicUrl(fileName);
+
+    const imageUrl = urlData.publicUrl;
+
+    const res = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, senderId, content: `[Imagen] ${imageUrl}` })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error();
+    
+    showToast('Imagen enviada', 'success');
   } catch (err) {
     showToast('Error al procesar la imagen', 'error');
+  } finally {
     showLoading(false);
   }
 }

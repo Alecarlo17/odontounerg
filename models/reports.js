@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: REPORTS.JS
    Modelo de datos para reportes y estadísticas
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,20 +10,21 @@ const db = require('../config/database');
  */
 async function getSystemStats() {
   try {
-    const users = await db.getSQLite('SELECT COUNT(*) as c FROM profiles');
-    const students = await db.getSQLite("SELECT COUNT(*) as c FROM profiles WHERE role='student'");
-    const patients = await db.getSQLite("SELECT COUNT(*) as c FROM profiles WHERE role='patient'");
-    const requests = await db.getSQLite('SELECT COUNT(*) as c FROM requests');
-    const appointments = await db.getSQLite('SELECT COUNT(*) as c FROM appointments');
+    const { count: users } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true });
+    const { count: students } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
+    const { count: patients } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
+    const { count: requests } = await db.supabase.from('requests').select('*', { count: 'exact', head: true });
+    const { count: appointments } = await db.supabase.from('appointments').select('*', { count: 'exact', head: true });
 
     return {
-      totalUsers: users ? users.c : 0,
-      totalStudents: students ? students.c : 0,
-      totalPatients: patients ? patients.c : 0,
-      totalRequests: requests ? requests.c : 0,
-      totalAppointments: appointments ? appointments.c : 0
+      totalUsers: users || 0,
+      totalStudents: students || 0,
+      totalPatients: patients || 0,
+      totalRequests: requests || 0,
+      totalAppointments: appointments || 0
     };
   } catch (e) {
+    console.error('Error en getSystemStats:', e);
     return {
       totalUsers: 0, totalStudents: 0, totalPatients: 0, totalRequests: 0, totalAppointments: 0
     };
@@ -36,19 +36,19 @@ async function getSystemStats() {
  */
 async function getStudentTreatments(studentId) {
   try {
-    const sql = `
-      SELECT t.*, p.full_name as patient_name
-      FROM treatments t
-      LEFT JOIN profiles p ON t.patient_id = p.id
-      WHERE t.student_id = ?
-      ORDER BY t.created_at DESC
-    `;
-    const data = await db.querySQLite(sql, [studentId]);
-    return data.map(t => ({
-      ...t,
-      patient: { full_name: t.patient_name }
-    }));
+    const { data, error } = await db.supabase
+      .from('treatments')
+      .select(`
+        *,
+        patient:profiles!treatments_patient_id_fkey(full_name)
+      `)
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   } catch (e) {
+    console.error('Error en getStudentTreatments:', e);
     return [];
   }
 }
@@ -58,19 +58,19 @@ async function getStudentTreatments(studentId) {
  */
 async function getPatientTreatments(patientId) {
   try {
-    const sql = `
-      SELECT t.*, s.full_name as student_name
-      FROM treatments t
-      LEFT JOIN profiles s ON t.student_id = s.id
-      WHERE t.patient_id = ?
-      ORDER BY t.created_at DESC
-    `;
-    const data = await db.querySQLite(sql, [patientId]);
-    return data.map(t => ({
-      ...t,
-      student: { full_name: t.student_name }
-    }));
+    const { data, error } = await db.supabase
+      .from('treatments')
+      .select(`
+        *,
+        student:profiles!treatments_student_id_fkey(full_name)
+      `)
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
   } catch (e) {
+    console.error('Error en getPatientTreatments:', e);
     return [];
   }
 }
@@ -80,14 +80,22 @@ async function getPatientTreatments(patientId) {
  */
 async function getTreatmentDistribution() {
   try {
-    const patients = await db.querySQLite('SELECT consultation_reason FROM patients');
+    const { data, error } = await db.supabase
+      .from('patients')
+      .select('consultation_reason');
+
+    if (error) throw error;
+
     const distribution = {};
-    patients.forEach(p => {
-      const reason = p.consultation_reason || 'No especificado';
-      distribution[reason] = (distribution[reason] || 0) + 1;
-    });
+    if (data) {
+      data.forEach(p => {
+        const reason = p.consultation_reason || 'No especificado';
+        distribution[reason] = (distribution[reason] || 0) + 1;
+      });
+    }
     return distribution;
   } catch (e) {
+    console.error('Error en getTreatmentDistribution:', e);
     return {};
   }
 }

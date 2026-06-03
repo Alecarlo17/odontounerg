@@ -9,44 +9,6 @@ let chatPollingInterval = null;
  * Obtener conversaciones del usuario
  */
 async function getConversations(userId) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { data: convs } = await client.from('conversations')
-      .select('id, request:request_id(id, status, student:student_id(id, full_name, avatar_url), patient:patient_id(id, full_name, avatar_url))');
-    
-    if (!convs || convs.length === 0) return [];
-    
-    const myConvs = convs.filter(c => {
-       const req = Array.isArray(c.request) ? c.request[0] : c.request;
-       if (!req) return false;
-       if (req.status !== 'accepted' && req.status !== 'active') return false;
-       const stu = Array.isArray(req.student) ? req.student[0] : req.student;
-       const pat = Array.isArray(req.patient) ? req.patient[0] : req.patient;
-       if (!stu || !pat) return false;
-       return stu.id === userId || pat.id === userId;
-    });
-
-    return myConvs.map(c => {
-      const req = Array.isArray(c.request) ? c.request[0] : c.request;
-      const stu = Array.isArray(req.student) ? req.student[0] : req.student;
-      const pat = Array.isArray(req.patient) ? req.patient[0] : req.patient;
-      const isStudent = stu.id === userId;
-      const otherUser = isStudent ? pat : stu;
-      return {
-        conversationId: c.id,
-        requestId: req.id,
-        otherUser: {
-          id: otherUser.id,
-          full_name: otherUser.full_name,
-          avatar_url: otherUser.avatar_url,
-          disponibilidad: 'disponible'
-        },
-        lastMessage: { content: '...' },
-        unreadCount: 0
-      };
-    });
-  }
-
   try {
     const res = await fetch(`/api/chat/conversations/${userId}`);
     const json = await res.json();
@@ -77,11 +39,6 @@ async function getConversations(userId) {
  * Obtener mensajes de una conversación
  */
 async function getMessages(conversationId) {
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const { data } = await client.from('messages').select('*').eq('conversation_id', conversationId).order('created_at', { ascending: true });
-    return data || [];
-  }
   try {
     const res = await fetch(`/api/chat/messages/${conversationId}`);
     const json = await res.json();
@@ -97,18 +54,6 @@ async function getMessages(conversationId) {
 async function sendMessage(conversationId, senderId, content) {
   if (!content || !content.trim()) return false;
 
-  if (navigator.onLine) {
-    const client = window.supabaseClient || supabase;
-    const msgId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
-    const { error } = await client.from('messages').insert({
-      id: msgId,
-      sender_id: senderId,
-      conversation_id: conversationId,
-      content: content
-    });
-    if (error) return false;
-  }
-
   try {
     const res = await fetch('/api/chat/messages', {
       method: 'POST',
@@ -116,10 +61,10 @@ async function sendMessage(conversationId, senderId, content) {
       body: JSON.stringify({ conversationId, senderId, content })
     });
     const json = await res.json();
-    if (!json.success && !navigator.onLine) throw new Error();
+    if (!json.success) throw new Error();
     return true;
   } catch(e) {
-    if (!navigator.onLine) showToast('Error al enviar mensaje offline', 'error');
+    showToast('Error al enviar mensaje', 'error');
     return false;
   }
 }
@@ -128,12 +73,6 @@ async function sendMessage(conversationId, senderId, content) {
  * Marcar mensajes como leídos
  */
 async function markMessagesAsRead(conversationId, userId) {
-  if (navigator.onLine) {
-    try {
-      const client = window.supabaseClient || supabase;
-      await client.from('messages').update({ read: true }).eq('conversation_id', conversationId).neq('sender_id', userId);
-    } catch(e) {}
-  }
   try {
     await fetch(`/api/chat/messages/${conversationId}/read`, { method: 'PUT' });
   } catch(e) {}

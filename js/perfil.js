@@ -61,20 +61,7 @@ async function updatePatientData(userId, data) {
  */
 async function uploadProfilePhoto(userId, file) {
   if (!file) return null;
-  // Fallback offline (en una app 100% offline real, se guarda en base64 en SQLite)
-  if (!navigator.onLine) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target.result;
-        // Aquí simulamos que se guarda y actualiza
-        showToast('Foto guardada localmente', 'success');
-        resolve(base64);
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-
+  
   const fileExt = file.name.split('.').pop();
   const fileName = `${userId}/avatar.${fileExt}`;
   const client = window.supabaseClient || supabase;
@@ -92,7 +79,6 @@ async function uploadProfilePhoto(userId, file) {
     .from('avatars')
     .getPublicUrl(fileName);
 
-  // Actualizar URL en el perfil localmente vía API (opcional, por simplicidad asumimos que está bien así)
   return urlData.publicUrl;
 }
 

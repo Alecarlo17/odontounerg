@@ -413,29 +413,3 @@ window.addEventListener('resize', () => {
   }
 });
 
-/* =============================================
-   OFFLINE MODE SUPPORT
-   ============================================= */
-
-function checkConnectionStatus() {
-  let banner = document.getElementById('global-offline-banner');
-  if (!navigator.onLine) {
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'global-offline-banner';
-      banner.innerHTML = '';
-      banner.style.cssText = 'background:#ef4444; color:white; text-align:center; padding:8px; font-weight:500; font-size:14px; position:sticky; top:0; z-index:99999; box-shadow:0 2px 4px rgba(0,0,0,0.1); width:100%;';
-      document.body.prepend(banner);
-    }
-    banner.style.display = 'block';
-  } else {
-    if (banner) {
-      banner.style.display = 'none';
-    }
-  }
-}
-
-// Check status on load and on change
-window.addEventListener('load', checkConnectionStatus);
-window.addEventListener('online', checkConnectionStatus);
-window.addEventListener('offline', checkConnectionStatus);

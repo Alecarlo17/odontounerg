@@ -4,29 +4,37 @@
    para los dashboards.
    ============================================= */
 
+const RatingsModel = require('../models/ratings');
 const db = require('../config/database');
 
 async function getPatientDashboard(req, res) {
   const { userId } = req.params;
   try {
-    // pendingReqs
-    const pending = await db.querySQLite("SELECT count(id) as c FROM requests WHERE patient_id = ? AND status = 'pending'", [userId]);
-    // acceptedReqs
-    const accepted = await db.querySQLite("SELECT count(id) as c FROM requests WHERE patient_id = ? AND status IN ('accepted', 'active')", [userId]);
+    const { count: pending } = await db.supabase
+      .from('requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', userId)
+      .eq('status', 'pending');
+
+    const { count: accepted } = await db.supabase
+      .from('requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', userId)
+      .in('status', ['accepted', 'active']);
     
-    // appointments count
-    const appointments = await db.querySQLite(`
-      SELECT count(a.id) as c FROM appointments a 
-      INNER JOIN requests r ON a.request_id = r.id 
-      WHERE r.patient_id = ? AND a.status IN ('proposed', 'confirmed')
-    `, [userId]);
+    // For appointments, we need to join requests and filter by patient_id
+    const { count: appointments } = await db.supabase
+      .from('appointments')
+      .select('*, requests!inner(*)', { count: 'exact', head: true })
+      .eq('requests.patient_id', userId)
+      .in('status', ['proposed', 'confirmed']);
 
     return res.json({
       success: true,
       data: {
-        pendingRequests: pending[0]?.c || 0,
-        acceptedRequests: accepted[0]?.c || 0,
-        activeAppointments: appointments[0]?.c || 0
+        pendingRequests: pending || 0,
+        acceptedRequests: accepted || 0,
+        activeAppointments: appointments || 0
       }
     });
   } catch(e) {
@@ -37,21 +45,30 @@ async function getPatientDashboard(req, res) {
 async function getStudentDashboard(req, res) {
   const { userId } = req.params;
   try {
-    const pending = await db.querySQLite("SELECT count(id) as c FROM requests WHERE student_id = ? AND status = 'pending'", [userId]);
-    const accepted = await db.querySQLite("SELECT count(id) as c FROM requests WHERE student_id = ? AND status IN ('accepted', 'active')", [userId]);
+    const { count: pending } = await db.supabase
+      .from('requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', userId)
+      .eq('status', 'pending');
+
+    const { count: accepted } = await db.supabase
+      .from('requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('student_id', userId)
+      .in('status', ['accepted', 'active']);
     
-    const appointments = await db.querySQLite(`
-      SELECT count(a.id) as c FROM appointments a 
-      INNER JOIN requests r ON a.request_id = r.id 
-      WHERE r.student_id = ? AND a.status IN ('proposed', 'confirmed')
-    `, [userId]);
+    const { count: appointments } = await db.supabase
+      .from('appointments')
+      .select('*, requests!inner(*)', { count: 'exact', head: true })
+      .eq('requests.student_id', userId)
+      .in('status', ['proposed', 'confirmed']);
 
     return res.json({
       success: true,
       data: {
-        pendingRequests: pending[0]?.c || 0,
-        acceptedRequests: accepted[0]?.c || 0,
-        activeAppointments: appointments[0]?.c || 0
+        pendingRequests: pending || 0,
+        acceptedRequests: accepted || 0,
+        activeAppointments: appointments || 0
       }
     });
   } catch(e) {
@@ -61,26 +78,39 @@ async function getStudentDashboard(req, res) {
 
 async function getAdminDashboard(req, res) {
   try {
-    const users = await db.querySQLite("SELECT count(id) as c FROM profiles");
-    const students = await db.querySQLite("SELECT count(id) as c FROM profiles WHERE role = 'student'");
-    const patients = await db.querySQLite("SELECT count(id) as c FROM profiles WHERE role = 'patient'");
-    const requests = await db.querySQLite("SELECT count(id) as c FROM requests");
-    const appointments = await db.querySQLite("SELECT count(id) as c FROM appointments");
-    const pendingReqs = await db.querySQLite("SELECT count(id) as c FROM requests WHERE status = 'pending'");
+    const { count: users } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true });
+    const { count: students } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'student');
+    const { count: patients } = await db.supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'patient');
+    const { count: requests } = await db.supabase.from('requests').select('*', { count: 'exact', head: true });
+    const { count: appointments } = await db.supabase.from('appointments').select('*', { count: 'exact', head: true });
+    const { count: pendingReqs } = await db.supabase.from('requests').select('*', { count: 'exact', head: true }).eq('status', 'pending');
 
-    // Data for charts
-    const reqStatus = await db.querySQLite("SELECT status, count(id) as count FROM requests GROUP BY status");
-    const appStatus = await db.querySQLite("SELECT status, count(id) as count FROM appointments GROUP BY status");
+    // Supabase JS doesn't have a direct GROUP BY count API yet, so we fetch and reduce for chart data
+    const { data: requestsData } = await db.supabase.from('requests').select('status');
+    const reqStatus = (requestsData || []).reduce((acc, curr) => {
+      const existing = acc.find(item => item.status === curr.status);
+      if (existing) existing.count++;
+      else acc.push({ status: curr.status, count: 1 });
+      return acc;
+    }, []);
+
+    const { data: apptData } = await db.supabase.from('appointments').select('status');
+    const appStatus = (apptData || []).reduce((acc, curr) => {
+      const existing = acc.find(item => item.status === curr.status);
+      if (existing) existing.count++;
+      else acc.push({ status: curr.status, count: 1 });
+      return acc;
+    }, []);
     
     return res.json({
       success: true,
       data: {
-        totalUsers: users[0]?.c || 0,
-        totalStudents: students[0]?.c || 0,
-        totalPatients: patients[0]?.c || 0,
-        totalRequests: requests[0]?.c || 0,
-        totalAppointments: appointments[0]?.c || 0,
-        pendingRequests: pendingReqs[0]?.c || 0,
+        totalUsers: users || 0,
+        totalStudents: students || 0,
+        totalPatients: patients || 0,
+        totalRequests: requests || 0,
+        totalAppointments: appointments || 0,
+        pendingRequests: pendingReqs || 0,
         chartRequests: reqStatus,
         chartAppointments: appStatus
       }
@@ -94,17 +124,28 @@ async function getTreatments(req, res) {
   const { userId, role } = req.params; // role is 'student' or 'patient'
   try {
     const col = role === 'student' ? 'student_id' : 'patient_id';
-    const joinCol = role === 'student' ? 'patient_id' : 'student_id';
-    const joinTable = 'profiles';
+    // Relation names in Supabase are based on the foreign key names. 
+    // Usually it would be `student:profiles!treatments_student_id_fkey(full_name)` or similar.
+    // For simplicity we will query treatments then fetch the other profile's name manually, 
+    // or just fetch `profiles` normally if we don't know the exact foreign key name.
     
-    const query = `
-      SELECT t.*, p.full_name as other_name 
-      FROM treatments t 
-      LEFT JOIN profiles p ON t.${joinCol} = p.id 
-      WHERE t.${col} = ? 
-      ORDER BY t.created_at DESC
-    `;
-    const data = await db.querySQLite(query, [userId]);
+    const { data: treatmentsData, error } = await db.supabase
+      .from('treatments')
+      .select('*')
+      .eq(col, userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const data = await Promise.all((treatmentsData || []).map(async (t) => {
+      const otherId = role === 'student' ? t.patient_id : t.student_id;
+      if (otherId) {
+        const { data: profile } = await db.supabase.from('profiles').select('full_name').eq('id', otherId).maybeSingle();
+        t.other_name = profile ? profile.full_name : 'Desconocido';
+      }
+      return t;
+    }));
+
     return res.json({ success: true, data });
   } catch(e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -117,25 +158,34 @@ async function createTreatment(req, res) {
     return res.status(400).json({ success: false, message: 'Faltan datos obligatorios' });
   }
   try {
-    const id = 't-' + Date.now();
     const now = new Date().toISOString();
-    const query = `
-      INSERT INTO treatments (id, patient_id, student_id, tratamiento, fecha, estado, created_at, observaciones)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    await db.runSQLite(query, [id, patientId, studentId, tratamiento, now, estado || 'en_proceso', now, observaciones || '']);
     
-    // Opcional: sync to Supabase if needed
-    if (await db.getStatus()) {
-      db.supabase.from('treatments').insert({
-        id, patient_id: patientId, student_id: studentId, tratamiento, fecha: now, estado: estado || 'en_proceso', created_at: now, observaciones: observaciones || ''
-      }).then(()=>{}).catch(()=>{});
-    }
+    const { error } = await db.supabase
+      .from('treatments')
+      .insert({
+        patient_id: patientId, 
+        student_id: studentId, 
+        tratamiento, 
+        fecha: now, 
+        estado: estado || 'en_proceso', 
+        created_at: now, 
+        observaciones: observaciones || ''
+      });
 
+    if (error) throw error;
     return res.json({ success: true, message: 'Tratamiento registrado' });
   } catch(e) {
     return res.status(500).json({ success: false, message: 'Error al registrar tratamiento' });
   }
+}
+
+async function createRating(req, res) {
+  const { studentId, patientId, rating, comment } = req.body;
+  if (!studentId || !patientId || !rating) {
+    return res.status(400).json({ success: false, message: 'Faltan datos para la calificación' });
+  }
+  const result = await RatingsModel.createRating(studentId, patientId, rating, comment);
+  return res.json(result);
 }
 
 module.exports = {
@@ -143,5 +193,6 @@ module.exports = {
   getStudentDashboard,
   getAdminDashboard,
   getTreatments,
-  createTreatment
+  createTreatment,
+  createRating
 };

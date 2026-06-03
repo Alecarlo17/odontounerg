@@ -1,7 +1,6 @@
 /* =============================================
    MODEL: PATIENTS.JS
    Modelo de datos para pacientes
-   SQLite como Principal
    ============================================= */
 
 const db = require('../config/database');
@@ -11,14 +10,36 @@ const db = require('../config/database');
  */
 async function getPatientById(patientId) {
   try {
-    const data = await db.getSQLite(`
-      SELECT p.*, pat.age, pat.phone as p_phone, pat.address, pat.medical_history, pat.consultation_reason, pat.accepts_requests, pat.gender
-      FROM profiles p 
-      LEFT JOIN patients pat ON p.id = pat.user_id 
-      WHERE p.id = ?
-    `, [patientId]);
+    const { data, error } = await db.supabase
+      .from('profiles')
+      .select(`
+        *,
+        patients(*)
+      `)
+      .eq('id', patientId)
+      .single();
+
+    if (error) throw error;
+    
+    if (data && data.patients) {
+      const pat = Array.isArray(data.patients) ? data.patients[0] : data.patients;
+      if (pat) {
+        return {
+          ...data,
+          age: pat.age,
+          p_phone: pat.phone,
+          address: pat.address,
+          medical_history: pat.medical_history,
+          consultation_reason: pat.consultation_reason,
+          accepts_requests: pat.accepts_requests,
+          gender: pat.gender
+        };
+      }
+    }
+    
     return data || null;
   } catch (e) {
+    console.error('Error en getPatientById:', e);
     return null;
   }
 }
@@ -28,37 +49,53 @@ async function getPatientById(patientId) {
  */
 async function getAvailablePatients(treatment = null) {
   try {
-    // IMPORTANTE: el JOIN debe ser ON p.id = pat.id (ya que auth.js inserta user.id en la columna id de patients)
-    let sql = `
-      SELECT p.id as profile_id, p.full_name, p.email, p.phone, p.disponibilidad, p.role,
-             pat.age, pat.consultation_reason, pat.medical_history, pat.gender
-      FROM profiles p 
-      INNER JOIN patients pat ON p.id = pat.user_id 
-      WHERE p.role = 'patient' AND pat.accepts_requests = 1
-    `;
-    let params = [];
-    if (treatment && treatment !== 'all') {
-      sql += ' AND pat.consultation_reason = ?';
-      params.push(treatment);
+    // Buscar pacientes que tengan solicitudes activas
+    const { data: busyRequests } = await db.supabase
+      .from('requests')
+      .select('patient_id')
+      .in('status', ['accepted', 'active']);
+
+    const busyPatientIds = (busyRequests || []).map(r => r.patient_id);
+
+    let query = db.supabase
+      .from('profiles')
+      .select(`
+        id, full_name, email, phone, disponibilidad, role, avatar_url,
+        patients!inner(age, consultation_reason, medical_history, gender, accepts_requests)
+      `)
+      .eq('role', 'patient')
+      .eq('patients.accepts_requests', true);
+
+    if (busyPatientIds.length > 0) {
+      // Excluir pacientes ocupados
+      query = query.not('id', 'in', `(${busyPatientIds.join(',')})`);
     }
-    const data = await db.querySQLite(sql, params);
+
+    if (treatment && treatment !== 'all') {
+      query = query.eq('patients.consultation_reason', treatment);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
     
-    // Mapear al formato esperado por el frontend
-    return data.map(row => ({
-      id: row.profile_id,
-      full_name: row.full_name,
-      email: row.email,
-      phone: row.phone,
-      avatar_url: row.avatar_url,
-      disponibilidad: row.disponibilidad,
-      role: row.role,
-      patients: {
-        age: row.age,
-        consultation_reason: row.consultation_reason,
-        medical_history: row.medical_history,
-        gender: row.gender
-      }
-    }));
+    return (data || []).map(row => {
+      const pat = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+      return {
+        id: row.id,
+        full_name: row.full_name,
+        email: row.email,
+        phone: row.phone,
+        avatar_url: row.avatar_url,
+        disponibilidad: row.disponibilidad,
+        role: row.role,
+        patients: {
+          age: pat.age,
+          consultation_reason: pat.consultation_reason,
+          medical_history: pat.medical_history,
+          gender: pat.gender
+        }
+      };
+    });
   } catch (e) {
     console.error('Error en getAvailablePatients:', e);
     return [];
@@ -70,24 +107,21 @@ async function getAvailablePatients(treatment = null) {
  */
 async function updatePatient(patientId, patientData) {
   try {
-    await db.runSQLite(
-      'UPDATE patients SET phone = ?, address = ?, age = ?, medical_history = ?, consultation_reason = ?, accepts_requests = ? WHERE id = ?',
-      [patientData.phone, patientData.direccion || patientData.address, patientData.age, patientData.medicalHistory, patientData.consultationReason, patientData.acceptsRequests !== false ? 1 : 0, patientId]
-    );
-
-    if (await db.getStatus()) {
-      db.supabase.from('patients').update({
+    const { error } = await db.supabase
+      .from('patients')
+      .update({
         phone: patientData.phone,
-        address: patientData.direccion || patientData.address,
         age: patientData.age,
         medical_history: patientData.medicalHistory,
         consultation_reason: patientData.consultationReason,
         accepts_requests: patientData.acceptsRequests !== false
-      }).eq('id', patientId).then(()=>{}).catch(()=>{});
-    }
+      })
+      .eq('id', patientId);
 
+    if (error) throw error;
     return true;
   } catch (e) {
+    console.error('Error en updatePatient:', e);
     return false;
   }
 }
@@ -97,28 +131,34 @@ async function updatePatient(patientId, patientData) {
  */
 async function getAllPatients() {
   try {
-    let sql = `
-      SELECT p.id as profile_id, p.*, pat.* 
-      FROM profiles p 
-      LEFT JOIN patients pat ON p.id = pat.user_id 
-      WHERE p.role = 'patient'
-      ORDER BY p.created_at DESC
-    `;
-    const data = await db.querySQLite(sql);
+    const { data, error } = await db.supabase
+      .from('profiles')
+      .select(`
+        *,
+        patients(age, consultation_reason, medical_history, phone)
+      `)
+      .eq('role', 'patient')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
     
-    return data.map(row => ({
-      id: row.profile_id,
-      full_name: row.full_name,
-      role: row.role,
-      created_at: row.created_at,
-      patients: {
-        age: row.age,
-        consultation_reason: row.consultation_reason,
-        medical_history: row.medical_history,
-        phone: row.phone
-      }
-    }));
+    return (data || []).map(row => {
+      const pat = Array.isArray(row.patients) ? row.patients[0] || {} : row.patients || {};
+      return {
+        id: row.id,
+        full_name: row.full_name,
+        role: row.role,
+        created_at: row.created_at,
+        patients: {
+          age: pat.age,
+          consultation_reason: pat.consultation_reason,
+          medical_history: pat.medical_history,
+          phone: pat.phone || row.phone
+        }
+      };
+    });
   } catch (e) {
+    console.error('Error en getAllPatients:', e);
     return [];
   }
 }
