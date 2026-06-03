@@ -819,6 +819,12 @@ async function loadNotificationsList() {
   document.getElementById('notifications-list').innerHTML = renderNotificationsPanel(notifications);
 }
 
+window.handleNotificationClick = async (id) => {
+  await markNotificationRead(id);
+  loadNotificationsList();
+  updateNotificationBadge();
+};
+
 async function handleMarkAllRead() {
   await markAllNotificationsRead(currentUser.user.id);
   loadNotificationsList();
@@ -848,9 +854,61 @@ async function viewPatientProfile(patientId) {
       document.getElementById('perfil-paciente-tratamiento').textContent = p.patients?.consultation_reason || 'No especificado';
       document.getElementById('perfil-paciente-antecedentes').textContent = p.patients?.medical_history || 'Ninguno';
       
+      document.getElementById('current-perfil-paciente-id').value = patientId;
+
+      try {
+        const resResp = await fetch(`/api/ratings/patient/${patientId}/responsibility`);
+        const jsonResp = await resResp.json();
+        if (jsonResp.success) {
+          const badgeHtml = jsonResp.status === 'No evaluado' 
+            ? `<span class="badge" style="background:var(--gray-300);color:var(--text);">${jsonResp.status}</span>`
+            : `<span class="badge ${jsonResp.status === 'Responsable' ? 'badge-success' : 'badge-error'}">${jsonResp.status}</span>`;
+          document.getElementById('perfil-paciente-badges').innerHTML += ' ' + badgeHtml;
+        }
+      } catch(e) {}
+      
       document.getElementById('modal-perfil-paciente').classList.add('active');
     } else {
       showToast('Error al cargar perfil', 'error');
+    }
+  } catch(e) {
+    showLoading(false);
+    showToast('Error de red', 'error');
+  }
+}
+
+function openCalificarPacienteModal() {
+  const patientId = document.getElementById('current-perfil-paciente-id').value;
+  if (!patientId) return;
+  document.getElementById('calificar-paciente-id').value = patientId;
+  closeModal('modal-perfil-paciente');
+  document.getElementById('modal-calificar-paciente').classList.add('active');
+}
+
+async function handleCalificarPaciente(event) {
+  event.preventDefault();
+  const patientId = document.getElementById('calificar-paciente-id').value;
+  const rating = document.getElementById('calificar-paciente-puntuacion').value;
+  const responsibility = document.getElementById('calificar-paciente-responsabilidad').value;
+  const comment = document.getElementById('calificar-paciente-comentario').value;
+
+  if (!rating || !responsibility) return;
+  showLoading(true);
+
+  try {
+    const res = await fetch('/api/ratings/patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patientId, rating, responsibility, comment })
+    });
+    const json = await res.json();
+    showLoading(false);
+
+    if (json.success) {
+      showToast('Calificación enviada');
+      closeModal('modal-calificar-paciente');
+    } else {
+      showToast(json.message || 'Error al calificar', 'error');
     }
   } catch(e) {
     showLoading(false);

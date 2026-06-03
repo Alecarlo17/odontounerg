@@ -139,20 +139,30 @@ function showSection(sectionName) {
 async function loadStudentsList() {
   const students = await getAvailableStudents();
   allStudents = students;
+
+  // Cargar promedios de todos los estudiantes
+  let averages = {};
+  try {
+    const res = await fetch('/api/ratings/students/averages');
+    const json = await res.json();
+    if (json.success) averages = json.data;
+  } catch(e) { console.error('Error fetching averages', e); }
+
   const container = document.getElementById('students-grid');
   if (students.length === 0) {
     container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i data-lucide="graduation-cap"></i></div><p class="empty-state-title">No hay estudiantes disponibles</p></div>';
     return;
   }
   container.innerHTML = students.map(s => {
-    const student = s.students;
+    const student = Array.isArray(s.students) ? s.students[0] : (s.students || {});
+    const avgScore = averages[s.id] ? averages[s.id].toFixed(1) : null;
     return `
       <div class="patient-card">
         <div class="patient-card-header">
           ${s.avatar_url ? `<img src="${s.avatar_url}" class="patient-card-avatar">` : `<span class="avatar avatar-placeholder" style="width:48px;height:48px">${getInitials(s.full_name)}</span>`}
           <div>
-            <div class="patient-card-name">${escapeHTML(s.full_name)}</div>
-            <div class="patient-card-meta">${student?.section ? student.section : ''} ${student?.academic_year ? '· ' + student.academic_year : ''}</div>
+            <div class="patient-card-name">${escapeHTML(s.full_name)} ${avgScore ? `<span style="font-size: 0.9rem; color: #f59e0b; margin-left: 0.5rem;">⭐ ${avgScore}</span>` : ''}</div>
+            <div class="patient-card-meta">${student?.section ? 'Sección ' + escapeHTML(student.section) : ''} ${student?.academic_year ? '· ' + escapeHTML(student.academic_year) : ''}</div>
           </div>
         </div>
         <div class="patient-card-body">
@@ -386,7 +396,7 @@ async function handleUpdateProfile(event) {
   event.preventDefault();
   const userId = currentUser.user.id;
   await updateProfile(userId, { fullName: document.getElementById('prof-name').value, phone: document.getElementById('prof-phone').value, disponibilidad: document.getElementById('prof-disponibilidad').value });
-  await updatePatientData(userId, { age: document.getElementById('prof-age').value, phone: document.getElementById('prof-phone').value, direccion: document.getElementById('prof-direccion').value, medicalHistory: document.getElementById('prof-antecedentes').value, consultationReason: document.getElementById('prof-problema').value });
+  await updatePatientData(userId, { age: document.getElementById('prof-age').value, phone: document.getElementById('prof-phone').value, address: document.getElementById('prof-direccion').value, medicalHistory: document.getElementById('prof-antecedentes').value, consultationReason: document.getElementById('prof-problema').value });
   setupSidebar();
 }
 
@@ -398,6 +408,12 @@ async function loadNotificationsList() {
   const notifications = await loadNotifications(currentUser.user.id);
   document.getElementById('notifications-list').innerHTML = renderNotificationsPanel(notifications);
 }
+
+window.handleNotificationClick = async (id) => {
+  await markNotificationRead(id);
+  loadNotificationsList();
+  updateNotificationBadge();
+};
 
 async function handleMarkAllRead() { await markAllNotificationsRead(currentUser.user.id); loadNotificationsList(); updateNotificationBadge(); }
 
@@ -511,7 +527,7 @@ async function viewStudentProfile(studentId) {
     showToast('No se encontró información del estudiante', 'error');
     return;
   }
-  const student = s.students || {};
+  const student = Array.isArray(s.students) ? s.students[0] : (s.students || {});
   const disponibilidad = s.disponibilidad || 'disponible';
   const dispText = disponibilidad === 'disponible' ? 'Disponible' : disponibilidad === 'ocupado' ? 'Ocupado' : 'No disponible';
   const dispClass = disponibilidad === 'disponible' ? 'badge-success' : disponibilidad === 'ocupado' ? 'badge-warning' : 'badge-error';
@@ -527,10 +543,11 @@ async function viewStudentProfile(studentId) {
   
   const badgesHtml = [];
   if (student.academic_year) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.academic_year)}</span>`);
-  if (student.section) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.section)}</span>`);
+  if (student.section) badgesHtml.push(`<span class="badge badge-primary">Sección ${escapeHTML(student.section)}</span>`);
   
   document.getElementById('perfil-estudiante-badges').innerHTML = badgesHtml.join(' ');
   document.getElementById('perfil-estudiante-cedula').textContent = escapeHTML(student.student_id_card || 'No especificada');
+  document.getElementById('perfil-estudiante-edad').textContent = escapeHTML(student.age ? student.age + ' años' : 'No especificada');
   document.getElementById('perfil-estudiante-disponibilidad').innerHTML = `<span class="badge ${dispClass}">${dispText}</span>`;
   
   let tratamientos = [];

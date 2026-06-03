@@ -1,8 +1,9 @@
 const db = require('../config/database');
+const crypto = require('crypto');
 
 async function sendNotification(userId, tipo, titulo, mensaje, referenciaId = null) {
   try {
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
     
     await db.supabase.from('notifications').insert({

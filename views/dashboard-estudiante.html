@@ -263,7 +263,7 @@
                         <option value="">Seleccione</option>
                         <option value="3er año">3er Año</option>
                         <option value="4to año">4to Año</option>
-                        <option value="5to año">5to Año</option>
+
                       </select>
                     </div>
                   </div>
@@ -406,7 +406,45 @@
           <p style="margin-bottom: 0;"><strong>Antecedentes médicos:</strong></p>
           <p id="perfil-paciente-antecedentes" style="color: var(--text-secondary); margin-top: 0.25rem; font-size: 0.85rem;">-</p>
         </div>
+        <input type="hidden" id="current-perfil-paciente-id">
+        <button class="btn btn-outline" style="width: 100%; margin-top: 1rem;" onclick="openCalificarPacienteModal()">Calificar Paciente</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal Calificar Paciente -->
+  <div class="modal-overlay" id="modal-calificar-paciente">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Calificar Paciente</h3>
+        <button class="modal-close" onclick="closeModal('modal-calificar-paciente')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleCalificarPaciente(event)">
+        <input type="hidden" id="calificar-paciente-id">
+        <div class="form-group">
+          <label class="form-label">Responsabilidad</label>
+          <select class="form-select" id="calificar-paciente-responsabilidad" required>
+            <option value="">Seleccione</option>
+            <option value="responsable">Responsable</option>
+            <option value="irresponsable">Irresponsable</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Puntuación (1-5 estrellas)</label>
+          <select class="form-select" id="calificar-paciente-puntuacion" required>
+            <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
+            <option value="4">⭐⭐⭐⭐ Muy Bueno</option>
+            <option value="3">⭐⭐⭐ Bueno</option>
+            <option value="2">⭐⭐ Regular</option>
+            <option value="1">⭐ Deficiente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comentario (opcional)</label>
+          <textarea class="form-textarea" id="calificar-paciente-comentario" placeholder="Deje un comentario sobre la atención..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
+      </form>
     </div>
   </div>
 

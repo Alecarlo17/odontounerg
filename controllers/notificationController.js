@@ -3,6 +3,7 @@
    ============================================= */
 
 const db = require('../config/database');
+const crypto = require('crypto');
 
 async function loadNotifications(req, res) {
   const { userId } = req.params;
@@ -75,7 +76,7 @@ async function markAllRead(req, res) {
 async function createNotification(req, res) {
   const { userId, tipo, titulo, mensaje, referenciaId } = req.body;
   try {
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
     const created_at = new Date().toISOString();
     
     const { error } = await db.supabase

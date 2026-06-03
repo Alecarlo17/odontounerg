@@ -28,7 +28,7 @@ async function getPatientById(patientId) {
           ...data,
           age: pat.age,
           p_phone: pat.phone,
-          address: pat.address,
+          direccion: pat.direccion,
           medical_history: pat.medical_history,
           consultation_reason: pat.consultation_reason,
           accepts_requests: pat.accepts_requests,
@@ -112,6 +112,7 @@ async function updatePatient(patientId, patientData) {
       .update({
         phone: patientData.phone,
         age: patientData.age,
+        direccion: patientData.address || patientData.direccion,
         medical_history: patientData.medicalHistory,
         consultation_reason: patientData.consultationReason,
         accepts_requests: patientData.acceptsRequests !== false

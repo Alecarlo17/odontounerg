@@ -154,28 +154,42 @@ async function registerStudent(formData) {
     if (error) {
       showLoading(false);
       showToast('Error en registro: ' + error.message, 'error');
+      alert('Atención: No se pudo registrar. Razón: ' + error.message + '\n\nSi el mensaje dice "User already registered", significa que el correo ya está en uso. Intenta iniciar sesión o usa otro correo.');
       return;
     }
     
     const finalId = data.user.id;
 
-    await client.from('profiles').upsert({
+    const { error: profileError } = await client.from('profiles').upsert({
       id: finalId,
       full_name: formData.fullName,
       email: formData.email.trim(),
+      phone: formData.phone || null,
       role: 'student',
       disponibilidad: 'disponible',
       updated_at: new Date().toISOString()
     });
 
-    await client.from('students').upsert({
+    if (profileError) {
+      showLoading(false);
+      alert('Error guardando perfil: ' + profileError.message);
+      return;
+    }
+
+    const { error: studentError } = await client.from('students').upsert({
       id: finalId,
-      user_id: finalId,
       student_id_card: formData.cedula,
       academic_year: formData.academicYear || null,
       section: formData.section || null,
-      treatments_needed: JSON.stringify(formData.treatments || [])
+      age: formData.age || null,
+      treatments_needed: formData.treatments || []
     });
+
+    if (studentError) {
+      showLoading(false);
+      alert('Error guardando datos de estudiante: ' + studentError.message);
+      return;
+    }
 
     showLoading(false);
     showToast('Registro exitoso. Iniciando sesión...', 'success');
@@ -231,12 +245,13 @@ async function registerPatient(formData) {
     if (error) {
       showLoading(false);
       showToast('Error en registro: ' + error.message, 'error');
+      alert('Atención: No se pudo registrar. Razón: ' + error.message + '\n\nSi el mensaje dice "User already registered", significa que el correo ya está en uso. Intenta iniciar sesión o usa otro correo.');
       return;
     }
     
     const finalId = data.user.id;
 
-    await client.from('profiles').upsert({
+    const { error: profileError } = await client.from('profiles').upsert({
       id: finalId,
       full_name: formData.fullName,
       email: formData.email.trim(),
@@ -246,19 +261,29 @@ async function registerPatient(formData) {
       updated_at: new Date().toISOString()
     });
 
-    await client.from('patients').upsert({
+    if (profileError) {
+      showLoading(false);
+      alert('Error guardando perfil de paciente: ' + profileError.message);
+      return;
+    }
+
+    const { error: patientError } = await client.from('patients').upsert({
       id: finalId,
-      user_id: finalId,
-      full_name: formData.fullName,
-      dni: formData.cedula,
+      cedula: formData.cedula,
       phone: formData.phone || null,
-      address: formData.direccion || null,
+      direccion: formData.direccion || null,
       age: formData.age || null,
       gender: formData.gender || null,
       medical_history: formData.medicalHistory || null,
       consultation_reason: formData.consultationReason || null,
       accepts_requests: true
     });
+
+    if (patientError) {
+      showLoading(false);
+      alert('Error guardando datos de paciente: ' + patientError.message);
+      return;
+    }
 
     showLoading(false);
     showToast('Registro exitoso. Iniciando sesión...', 'success');

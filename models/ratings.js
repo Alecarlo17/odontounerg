@@ -45,13 +45,15 @@ async function getStudentRatings(studentId) {
 
     if (error) throw error;
     
-    return (data || []).map(r => {
-      const pat = Array.isArray(r.patient) ? r.patient[0] : r.patient;
-      return {
-        ...r,
-        patient_name: pat ? pat.full_name : 'Desconocido'
-      };
-    });
+    return (data || [])
+      .filter(r => !r.comment || !r.comment.startsWith('[P_RATING]'))
+      .map(r => {
+        const pat = Array.isArray(r.patient) ? r.patient[0] : r.patient;
+        return {
+          ...r,
+          patient_name: pat ? pat.full_name : 'Desconocido'
+        };
+      });
   } catch (e) {
     console.error('Error en getStudentRatings:', e);
     return [];
@@ -70,22 +72,84 @@ async function getStudentAverage(studentId) {
 
     if (error) throw error;
 
-    if (!data || data.length === 0) {
+    const filteredData = (data || []).filter(r => !r.comment || !r.comment.startsWith('[P_RATING]'));
+
+    if (filteredData.length === 0) {
       return { avg: 0, count: 0 };
     }
 
-    const sum = data.reduce((acc, curr) => acc + curr.score, 0);
-    const avg = sum / data.length;
+    const sum = filteredData.reduce((acc, curr) => acc + curr.score, 0);
+    const avg = sum / filteredData.length;
 
-    return { avg, count: data.length };
+    return { avg, count: filteredData.length };
   } catch (e) {
     console.error('Error en getStudentAverage:', e);
     return { avg: 0, count: 0 };
   }
 }
 
+/**
+ * Obtener todos los promedios de estudiantes en masa
+ */
+async function getAllStudentsAverages() {
+  try {
+    const { data, error } = await db.supabase
+      .from('ratings')
+      .select('student_id, score, comment');
+      
+    if (error) throw error;
+    
+    const averages = {};
+    (data || []).forEach(r => {
+      if (r.comment && r.comment.startsWith('[P_RATING]')) return;
+      if (!averages[r.student_id]) averages[r.student_id] = { sum: 0, count: 0 };
+      averages[r.student_id].sum += r.score;
+      averages[r.student_id].count += 1;
+    });
+    
+    const result = {};
+    Object.keys(averages).forEach(student_id => {
+      result[student_id] = averages[student_id].sum / averages[student_id].count;
+    });
+    return result;
+  } catch(e) {
+    console.error('Error in getAllStudentsAverages', e);
+    return {};
+  }
+}
+
+/**
+ * Obtener estatus de responsabilidad de un paciente
+ */
+async function getPatientResponsibility(patientId) {
+  try {
+    const { data, error } = await db.supabase
+      .from('ratings')
+      .select('comment')
+      .eq('patient_id', patientId)
+      .like('comment', '[P_RATING]%')
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    if (error) throw error;
+    if (!data || data.length === 0) return 'No evaluado';
+    
+    // Parse [P_RATING][responsable] comment
+    const match = data[0].comment.match(/\[P_RATING\]\[(.*?)\]/);
+    if (match && match[1]) {
+      return match[1] === 'responsable' ? 'Responsable' : 'Irresponsable';
+    }
+    return 'No evaluado';
+  } catch(e) {
+    console.error('Error in getPatientResponsibility', e);
+    return 'No evaluado';
+  }
+}
+
 module.exports = {
   createRating,
   getStudentRatings,
-  getStudentAverage
+  getStudentAverage,
+  getAllStudentsAverages,
+  getPatientResponsibility
 };

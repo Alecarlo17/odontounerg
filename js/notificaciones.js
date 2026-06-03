@@ -87,7 +87,7 @@ function renderNotificationsPanel(notifications) {
 
   return notifications.map(n => `
     <div class="notification-item ${n.leida ? '' : 'unread'}" 
-         onclick="markNotificationRead('${n.id}')" 
+         onclick="handleNotificationClick('${n.id}')" 
          style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: var(--transition); ${n.leida ? '' : 'background: var(--primary-50);'}">
       <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
         <span style="font-size: 1.25rem; display:flex;">${icons[n.tipo] || '<i data-lucide="bell" style="width:20px;height:20px;"></i>'}</span>

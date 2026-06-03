@@ -11,12 +11,12 @@ const db = require('../config/database');
 
 /**
  * Validar año académico permitido
- * Solo se permiten estudiantes de 3er, 4to y 5to año
+ * Solo se permiten estudiantes de 3er y 4to año
  * @param {string} academicYear - Año académico seleccionado
  * @returns {boolean} True si el año es válido
  */
 function isValidAcademicYear(academicYear) {
-  const allowedYears = ['3er año', '4to año', '5to año'];
+  const allowedYears = ['3er año', '4to año'];
   return allowedYears.includes(academicYear);
 }
 
@@ -40,7 +40,7 @@ async function validateStudentRegistration(req, res) {
   if (academicYear && !isValidAcademicYear(academicYear)) {
     return res.status(400).json({
       success: false,
-      message: 'Solo se permiten estudiantes de 3er, 4to o 5to año'
+      message: 'Solo se permiten estudiantes de 3er o 4to año'
     });
   }
 
