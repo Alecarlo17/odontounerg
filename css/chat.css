@@ -1,4 +1,4 @@
-/* =============================================
+﻿/* =============================================
    CHAT.CSS - Estilos del Chat
    ============================================= */
 
@@ -376,47 +376,48 @@
 /* =============================================
    Dark mode del chat
    ============================================= */
-[data-theme="dark"] .chat-layout {
+body.dark .chat-layout {
   background: var(--bg-card);
   border-color: var(--border);
 }
 
-[data-theme="dark"] .chat-sidebar {
+body.dark .chat-sidebar {
   background: var(--bg-main);
 }
 
-[data-theme="dark"] .chat-sidebar-header,
-[data-theme="dark"] .chat-main-header,
-[data-theme="dark"] .chat-input-area {
+body.dark .chat-sidebar-header,
+body.dark .chat-main-header,
+body.dark .chat-input-area {
   background: var(--bg-card);
 }
 
-[data-theme="dark"] .chat-item:hover,
-[data-theme="dark"] .chat-item.active {
+body.dark .chat-item:hover,
+body.dark .chat-item.active {
   background: var(--bg-card);
 }
 
-[data-theme="dark"] .chat-messages {
+body.dark .chat-messages {
   background: var(--bg-main);
 }
 
-[data-theme="dark"] .message.received .message-bubble {
+body.dark .message.received .message-bubble {
   background: var(--bg-card);
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-
-[data-theme="dark"] .chat-input {
-  background: var(--bg-main);
   border-color: var(--border);
   color: var(--text-primary);
 }
 
-[data-theme="dark"] .chat-input:focus {
+body.dark .chat-input {
+  background: var(--bg-main);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+body.dark .chat-input:focus {
   background: var(--bg-card);
   border-color: var(--primary);
 }
 
-[data-theme="dark"] .chat-date-separator span {
+body.dark .chat-date-separator span {
   background: var(--bg-main);
 }
+

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
   <title>Dashboard Paciente - OdontoUNERG</title>
+  <meta name="description" content="Panel de control para pacientes - OdontoUNERG">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/auth.css">
   <link rel="stylesheet" href="/css/dashboard.css">
@@ -15,31 +16,57 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <a href="/" class="sidebar-logo" style="display:flex;align-items:center;text-decoration:none;">
-          <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 48px; width: auto; margin-right: 10px;">
+        <a href="/" class="sidebar-logo" style="display:flex; flex-direction:column; align-items:center; text-decoration:none; text-align:center; padding: 1rem 0; gap: 0.5rem;">
+          <div style="display:flex; gap: 12px; align-items:center; justify-content:center;">
+            <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 42px; width: auto; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+            <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 42px; width: auto;">
+          </div>
           <div>
-            <span class="sidebar-logo-text" style="color:var(--text);">OdontoUNERG</span>
-            <span class="sidebar-logo-sub" style="color:var(--text-muted);">Paciente</span>
+            <span class="sidebar-logo-text" style="color:var(--text); font-size: 1.25rem; display:block;">OdontoUNERG</span>
+            <span class="sidebar-logo-sub" style="color:var(--text-muted); font-size: 0.85rem; display:block;">Paciente</span>
           </div>
         </a>
       </div>
       <nav class="sidebar-nav">
         <div class="sidebar-section">
           <span class="sidebar-section-title">Principal</span>
-          <a class="sidebar-link active" onclick="showSection('inicio')"><i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio</a>
-          <a class="sidebar-link" onclick="showSection('estudiantes')"><i data-lucide="graduation-cap" class="sidebar-link-icon"></i> Estudiantes</a>
-          <a class="sidebar-link" onclick="showSection('solicitudes')"><i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes <span class="sidebar-link-badge hidden" id="req-badge">0</span></a>
+          <a class="sidebar-link active" onclick="showSection('inicio')">
+            <i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio
+          </a>
+          <a class="sidebar-link" onclick="showSection('solicitudes')">
+            <i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes
+            <span class="sidebar-link-badge hidden" id="notif-badge">0</span>
+          </a>
+          <a class="sidebar-link" onclick="showSection('diagnostico')">
+            <i data-lucide="stethoscope" class="sidebar-link-icon"></i> Diagnóstico
+          </a>
         </div>
         <div class="sidebar-section">
           <span class="sidebar-section-title">Gestión</span>
-          <a class="sidebar-link" onclick="showSection('citas')"><i data-lucide="calendar" class="sidebar-link-icon"></i> Citas</a>
-          <a class="sidebar-link" onclick="showSection('chat')"><i data-lucide="message-circle" class="sidebar-link-icon"></i> Chat</a>
-          <a class="sidebar-link" onclick="showSection('historial')"><i data-lucide="clipboard-list" class="sidebar-link-icon"></i> Historial</a>
+          <a class="sidebar-link" onclick="showSection('solicitudes')">
+            <i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes
+            <span class="sidebar-link-badge hidden" id="req-badge">0</span>
+          </a>
+          <a class="sidebar-link" onclick="showSection('citas')">
+            <i data-lucide="calendar" class="sidebar-link-icon"></i> Citas
+            <span class="sidebar-link-badge hidden" id="appt-badge">0</span>
+          </a>
+          <a class="sidebar-link" onclick="showSection('chat')">
+            <i data-lucide="message-circle" class="sidebar-link-icon"></i> Chat
+            <span class="sidebar-link-badge hidden" id="chat-badge">0</span>
+          </a>
+          <a class="sidebar-link" onclick="showSection('historial')">
+            <i data-lucide="clipboard-list" class="sidebar-link-icon"></i> Historial
+          </a>
         </div>
         <div class="sidebar-section">
           <span class="sidebar-section-title">Cuenta</span>
-          <a class="sidebar-link" onclick="showSection('perfil')"><i data-lucide="user" class="sidebar-link-icon"></i> Mi Perfil</a>
-          <a class="sidebar-link" onclick="showSection('notificaciones')"><i data-lucide="bell" class="sidebar-link-icon"></i> Notificaciones <span class="sidebar-link-badge hidden" id="notif-badge">0</span></a>
+          <a class="sidebar-link" onclick="showSection('perfil')">
+            <i data-lucide="user" class="sidebar-link-icon"></i> Mi Perfil
+          </a>
+          <a class="sidebar-link" onclick="showSection('notificaciones')">
+            <i data-lucide="bell" class="sidebar-link-icon"></i> Notificaciones
+          </a>
         </div>
       </nav>
       <div class="sidebar-footer">
@@ -50,7 +77,7 @@
             <div class="sidebar-user-role">Paciente</div>
           </div>
         </div>
-        <a class="sidebar-link" onclick="logout()" style="margin-top:0.5rem; color: rgba(255,255,255,0.4);">
+        <a class="sidebar-link" onclick="logout()" style="margin-top:0.5rem;color:rgba(255,255,255,0.4);">
           <i data-lucide="log-out" class="sidebar-link-icon"></i> Cerrar Sesión
         </a>
       </div>
@@ -67,55 +94,100 @@
           </div>
         </div>
         <div class="navbar-right">
-          <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro"><i data-lucide="moon" id="dark-mode-icon"></i></button>
-          <button class="navbar-icon-btn" onclick="showSection('notificaciones')"><i data-lucide="bell"></i><span class="notification-dot hidden" id="notif-dot"></span></button>
-          <button class="navbar-icon-btn" onclick="showSection('chat')"><i data-lucide="message-circle"></i></button>
+          <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro">
+            <i data-lucide="moon" id="dark-mode-icon"></i>
+          </button>
+          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones">
+            <i data-lucide="bell"></i>
+            <span class="notification-dot hidden" id="notif-dot"></span>
+          </button>
+          <button class="navbar-icon-btn" onclick="showSection('chat')" title="Chat">
+            <i data-lucide="message-circle"></i>
+          </button>
         </div>
       </header>
 
       <div class="page-content">
-        <!-- INICIO -->
+
+        <!-- ===== INICIO ===== -->
         <section id="section-inicio">
+          <!-- Banner diagnóstico requerido -->
+          <div id="diagnosis-required-banner" class="hidden" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;margin-bottom:1.25rem;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;">
+            <span style="font-size:1.8rem;flex-shrink:0">📋</span>
+            <div style="flex:1">
+              <strong style="display:block;margin-bottom:2px">Completa tu diagnóstico inicial</strong>
+              <small style="opacity:0.85">Para aparecer en la búsqueda de estudiantes, debes registrar tu motivo de consulta.</small>
+            </div>
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4)" onclick="showSection('diagnostico')">Completar ahora →</button>
+          </div>
+
           <div class="stats-grid" id="stats-grid"></div>
+
           <div class="inicio-grid" id="inicio-grid">
+            <!-- Caso activo -->
             <div class="card">
-              <div class="card-header"><span class="card-title"><i data-lucide="mail"></i> Solicitudes Pendientes</span></div>
-              <div class="card-body" id="pending-requests-preview"></div>
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="heart-pulse"></i> Mi Caso Actual</span>
+                <button class="btn btn-sm btn-outline" onclick="showSection('solicitudes')">Ver solicitudes</button>
+              </div>
+              <div class="card-body" id="caso-activo-info">
+                <div class="empty-state">
+                  <div class="empty-state-icon"><i data-lucide="heart-pulse"></i></div>
+                  <p class="empty-state-text">Sin caso activo</p>
+                </div>
+              </div>
             </div>
+            <!-- Próximas citas -->
             <div class="card">
-              <div class="card-header"><span class="card-title"><i data-lucide="calendar"></i> Próximas Citas</span></div>
-              <div class="card-body" id="upcoming-appointments"></div>
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="calendar"></i> Próximas Citas</span>
+                <button class="btn btn-sm btn-outline" onclick="showSection('citas')">Ver todas</button>
+              </div>
+              <div class="card-body" id="upcoming-appointments">
+                <div class="empty-state">
+                  <div class="empty-state-icon"><i data-lucide="calendar"></i></div>
+                  <p class="empty-state-text">Sin citas próximas</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- ESTUDIANTES -->
-        <section id="section-estudiantes" class="hidden">
-          <div class="filters-bar">
-            <div class="search-input-wrapper">
-              <span class="search-icon"><i data-lucide="search"></i></span>
-              <input type="text" class="form-input" id="search-students" placeholder="Buscar estudiantes..." oninput="filterStudentsList()">
+        <!-- ===== DIAGNÓSTICO INICIAL ===== -->
+        <section id="section-diagnostico" class="hidden">
+          <div style="max-width:680px;margin:0 auto">
+            <div id="diagnosis-container">
+              <div class="empty-state">
+                <div class="empty-state-icon"><i data-lucide="stethoscope"></i></div>
+                <p class="empty-state-title">Cargando diagnóstico...</p>
+              </div>
             </div>
           </div>
-          <div id="students-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1rem;"></div>
         </section>
 
-        <!-- SOLICITUDES -->
+        <!-- ===== SOLICITUDES ===== -->
         <section id="section-solicitudes" class="hidden">
           <div class="tabs">
             <div class="tab active" onclick="showReqTab('todas')">Todas</div>
             <div class="tab" onclick="showReqTab('pending')">Pendientes</div>
             <div class="tab" onclick="showReqTab('accepted')">Aceptadas</div>
+            <div class="tab" onclick="showReqTab('completed')">Finalizadas</div>
           </div>
           <div id="requests-list"></div>
         </section>
 
-        <!-- CITAS -->
+        <!-- ===== CITAS ===== -->
         <section id="section-citas" class="hidden">
+          <div class="tabs">
+            <div class="tab active" onclick="showApptTab('todas')">Todas</div>
+            <div class="tab" onclick="showApptTab('proposed')">Propuestas</div>
+            <div class="tab" onclick="showApptTab('confirmed')">Confirmadas</div>
+            <div class="tab" onclick="showApptTab('completed')">Realizadas</div>
+          </div>
           <div id="appointments-list"></div>
         </section>
 
-        <!-- CHAT -->
+        <!-- ===== CHAT ===== -->
         <section id="section-chat" class="hidden">
           <div class="chat-layout" style="height:calc(100vh - 160px);">
             <div class="chat-sidebar" id="chat-sidebar-panel">
@@ -126,47 +198,49 @@
               <div class="chat-empty">
                 <div class="chat-empty-icon"><i data-lucide="message-circle" style="width:48px;height:48px;"></i></div>
                 <p style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem;">Seleccione una conversación</p>
-                <p style="font-size:0.9rem;">Elija un chat de la lista</p>
+                <p style="font-size:0.9rem;">Elija un chat de la lista para comenzar</p>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- HISTORIAL -->
-        <section id="section-historial" class="hidden">
-          <div class="card">
-            <div class="card-header"><span class="card-title"><i data-lucide="clipboard-list"></i> Historial de Tratamientos</span></div>
-            <div class="card-body" id="treatments-list"></div>
-          </div>
-        </section>
-
-        <!-- HISTORIAL -->
+        <!-- ===== HISTORIAL ===== -->
         <section id="section-historial" class="hidden">
           <div class="card">
             <div class="card-header">
-              <span class="card-title"><i data-lucide="clipboard-list"></i> Historial de Tratamientos</span>
+              <span class="card-title"><i data-lucide="clipboard-list"></i> Historial Clínico</span>
+              <button class="btn btn-sm btn-outline" onclick="handleDownloadTreatments()">
+                <i data-lucide="download" style="width:14px;height:14px;"></i> PDF
+              </button>
             </div>
             <div class="card-body" id="treatments-list">
-              <div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p><p class="empty-state-text">Aún no hay tratamientos registrados</p></div>
+              <div class="empty-state">
+                <div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div>
+                <p class="empty-state-title">Sin tratamientos</p>
+                <p class="empty-state-text">Aún no hay tratamientos registrados</p>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- PERFIL -->
+        <!-- ===== PERFIL ===== -->
         <section id="section-perfil" class="hidden">
           <div style="max-width:600px;">
             <div class="card">
               <div class="card-header"><span class="card-title"><i data-lucide="user"></i> Mi Perfil</span></div>
               <div class="card-body">
                 <div style="display:flex;align-items:center;gap:1.5rem;margin-bottom:2rem;">
-                  <div id="profile-avatar-container" style="cursor:pointer" onclick="document.getElementById('profile-photo-input').click()">
+                  <div id="profile-avatar-container" style="position:relative;cursor:pointer;" onclick="document.getElementById('profile-photo-input').click()">
                     <div class="avatar avatar-xl avatar-placeholder" id="profile-avatar">?</div>
+                    <div style="position:absolute;bottom:0;right:0;background:var(--primary);color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;">
+                      <i data-lucide="camera" style="width:12px;height:12px;"></i>
+                    </div>
                   </div>
                   <input type="file" id="profile-photo-input" accept="image/*" style="display:none" onchange="handlePhotoUpload(this)">
                   <div>
-                    <h3 id="profile-name-display">Cargando...</h3>
-                    <p style="color:var(--text-secondary)" id="profile-email-display">...</p>
-                    <span class="badge badge-success" style="margin-top:0.5rem">Paciente</span>
+                    <h3 id="profile-name-display" style="font-size:1.25rem;font-weight:700;">Cargando...</h3>
+                    <p style="color:var(--text-secondary);" id="profile-email-display">...</p>
+                    <span class="badge badge-success" style="margin-top:0.5rem;">Paciente</span>
                   </div>
                 </div>
                 <form id="profile-form" onsubmit="handleUpdateProfile(event)">
@@ -177,35 +251,25 @@
                   <div style="display:flex;gap:0.75rem;">
                     <div class="form-group" style="flex:1">
                       <label class="form-label">Edad</label>
-                      <input type="number" class="form-input" id="prof-age">
+                      <input type="number" class="form-input" id="prof-age" min="1" max="120">
                     </div>
                     <div class="form-group" style="flex:1">
-                      <label class="form-label">Teléfono</label>
-                      <input type="tel" class="form-input" id="prof-phone">
+                      <label class="form-label">Género</label>
+                      <select class="form-select" id="prof-gender">
+                        <option value="">Seleccione</option>
+                        <option value="Masculino">Masculino</option>
+                        <option value="Femenino">Femenino</option>
+                        <option value="Otro">Otro</option>
+                      </select>
                     </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Teléfono</label>
+                    <input type="tel" class="form-input" id="prof-phone">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Dirección</label>
                     <input type="text" class="form-input" id="prof-direccion">
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Problema Odontológico</label>
-                    <select class="form-select" id="prof-problema">
-                      <option value="">Seleccione</option>
-                      <option value="Ortodoncia">Ortodoncia</option>
-                      <option value="Extracción">Extracción</option>
-                      <option value="Limpieza dental">Limpieza dental</option>
-                      <option value="Caries">Caries</option>
-                      <option value="Endodoncia">Endodoncia</option>
-                      <option value="Prótesis">Prótesis</option>
-                      <option value="Ortopedia">Ortopedia</option>
-                      <option value="Periodoncia">Periodoncia</option>
-                      <option value="Otro">Otro</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Antecedentes Médicos</label>
-                    <textarea class="form-textarea" id="prof-antecedentes" rows="3"></textarea>
                   </div>
                   <div class="form-group">
                     <label class="form-label">Disponibilidad</label>
@@ -222,7 +286,7 @@
           </div>
         </section>
 
-        <!-- NOTIFICACIONES -->
+        <!-- ===== NOTIFICACIONES ===== -->
         <section id="section-notificaciones" class="hidden">
           <div class="card">
             <div class="card-header">
@@ -232,12 +296,72 @@
             <div id="notifications-list"></div>
           </div>
         </section>
-        <!-- BOTÓN FLOTANTE SOLICITAR ATENCIÓN -->
-        <button id="btn-floating-new-case" class="btn btn-primary" style="position:fixed; bottom:2rem; right:2rem; border-radius:50px; box-shadow: 0 4px 12px rgba(14,165,233,0.3); display:none; z-index:100; padding:1rem 1.5rem; font-weight:bold; align-items:center; gap:0.5rem;" onclick="openNuevoCasoModal()">
-          <i data-lucide="plus-circle"></i> Solicitar Nueva Atención
-        </button>
+
       </div>
     </main>
+  </div>
+
+  <!-- ===== MODALES ===== -->
+
+  <!-- Modal Calificar Estudiante (después del alta) -->
+  <div class="modal-overlay" id="modal-calificar-estudiante">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">⭐ Calificar al Estudiante</h3>
+        <button class="modal-close" onclick="closeModal('modal-calificar-estudiante')">
+          <i data-lucide="x" style="width:18px;height:18px;"></i>
+        </button>
+      </div>
+      <input type="hidden" id="calificar-student-id">
+      <div style="text-align:center;padding:1rem 0">
+        <p style="color:var(--text-secondary);margin-bottom:1.5rem">Tu opinión ayuda a mejorar el sistema académico</p>
+      </div>
+      <form onsubmit="handleCalificar(event)">
+        <div class="form-group">
+          <label class="form-label">Puntuación (1–5 estrellas)</label>
+          <div id="star-rating" style="display:flex;gap:8px;justify-content:center;margin:0.5rem 0 1rem">
+            <span class="star-btn" data-val="1" onclick="setRating(1)" style="font-size:2rem;cursor:pointer;filter:grayscale(1)">★</span>
+            <span class="star-btn" data-val="2" onclick="setRating(2)" style="font-size:2rem;cursor:pointer;filter:grayscale(1)">★</span>
+            <span class="star-btn" data-val="3" onclick="setRating(3)" style="font-size:2rem;cursor:pointer;filter:grayscale(1)">★</span>
+            <span class="star-btn" data-val="4" onclick="setRating(4)" style="font-size:2rem;cursor:pointer;filter:grayscale(1)">★</span>
+            <span class="star-btn" data-val="5" onclick="setRating(5)" style="font-size:2rem;cursor:pointer;filter:grayscale(1)">★</span>
+          </div>
+          <!-- rating-score es usado por setRating() del script inline -->
+          <input type="hidden" id="rating-score" value="0">
+          <!-- calificar-puntuacion apunta al mismo valor para compatibilidad con handleCalificar -->
+          <input type="hidden" id="calificar-puntuacion" value="0">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Comentario (opcional)</label>
+          <textarea class="form-textarea" id="rating-comment" placeholder="¿Cómo fue la atención recibida?"></textarea>
+          <!-- calificar-comentario: alias para compatibilidad -->
+          <textarea class="form-textarea" id="calificar-comentario" style="display:none"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Alta Médica — Seguimiento -->
+  <div class="modal-overlay" id="modal-alta-seguimiento">
+    <div class="modal" style="max-width:420px;text-align:center;">
+      <div class="modal-body" style="padding:2rem 1.5rem">
+        <div style="font-size:3.5rem;margin-bottom:1rem">🏥</div>
+        <h3 style="font-size:1.3rem;font-weight:700;margin-bottom:0.75rem">¡Has recibido el Alta Médica!</h3>
+        <p style="color:var(--text-secondary);font-size:0.95rem;line-height:1.6;margin-bottom:2rem">
+          Tu tratamiento ha concluido exitosamente.<br>
+          <strong>¿Presentas actualmente otro problema odontológico que requiera nueva atención?</strong>
+        </p>
+        <div style="display:flex;gap:1rem;justify-content:center">
+          <button class="btn btn-outline" style="flex:1" onclick="handleAltaDecision(false)">
+            No, estoy bien 👍
+          </button>
+          <button class="btn btn-primary" style="flex:1" onclick="handleAltaDecision(true)">
+            Sí, nuevo caso 🦷
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal Reportar Usuario -->
@@ -245,7 +369,9 @@
     <div class="modal">
       <div class="modal-header">
         <h3 class="modal-title">Reportar Usuario</h3>
-        <button class="modal-close" onclick="closeModal('modal-reportar')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+        <button class="modal-close" onclick="closeModal('modal-reportar')">
+          <i data-lucide="x" style="width:18px;height:18px;"></i>
+        </button>
       </div>
       <form onsubmit="handleReportUser(event)">
         <input type="hidden" id="report-user-id">
@@ -269,119 +395,13 @@
     </div>
   </div>
 
-  <!-- Modal Perfil Estudiante -->
-  <div class="modal-overlay" id="modal-perfil-estudiante">
-    <div class="modal" style="max-width: 450px;">
-      <div class="modal-header">
-        <h3 class="modal-title">Perfil del Estudiante</h3>
-        <button class="modal-close" onclick="closeModal('modal-perfil-estudiante')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
-      </div>
-      <div class="modal-body" style="text-align: center;">
-        <div id="perfil-estudiante-avatar" style="margin-bottom: 1rem;"></div>
-        <h3 id="perfil-estudiante-nombre" style="margin-bottom: 0.25rem;">Cargando...</h3>
-        <div id="perfil-estudiante-badges" style="margin-bottom: 1.5rem;"></div>
-        <div style="text-align: left; background: var(--gray-50); padding: 1rem; border-radius: var(--radius); font-size: 0.9rem;">
-          <p style="margin-bottom: 0.5rem;"><strong>Cédula:</strong> <span id="perfil-estudiante-cedula">-</span></p>
-          <p style="margin-bottom: 0.5rem;"><strong>Edad:</strong> <span id="perfil-estudiante-edad">-</span></p>
-          <p style="margin-bottom: 0.5rem;"><strong>Disponibilidad:</strong> <span id="perfil-estudiante-disponibilidad">-</span></p>
-          <p style="margin-bottom: 0;"><strong>Tratamientos de interés:</strong></p>
-          <div id="perfil-estudiante-tratamientos" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem;">-</div>
-        </div>
-      </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Calificar Estudiante -->
-  <div class="modal-overlay" id="modal-calificar">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title">Calificar Estudiante</h3>
-        <button class="modal-close" onclick="closeModal('modal-calificar')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
-      </div>
-      <form onsubmit="handleCalificar(event)">
-        <input type="hidden" id="calificar-student-id">
-        <div class="form-group">
-          <label class="form-label">Puntuación (1-5 estrellas)</label>
-          <select class="form-select" id="calificar-puntuacion" required>
-            <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
-            <option value="4">⭐⭐⭐⭐ Muy Bueno</option>
-            <option value="3">⭐⭐⭐ Bueno</option>
-            <option value="2">⭐⭐ Regular</option>
-            <option value="1">⭐ Deficiente</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Comentario (opcional)</label>
-          <textarea class="form-textarea" id="calificar-comentario" placeholder="Deje un comentario sobre la atención..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal Reingreso Pregunta -->
-  <div class="modal-overlay" id="modal-reingreso-pregunta">
-    <div class="modal" style="max-width:400px; text-align:center;">
-      <div class="modal-header" style="border-bottom:none; justify-content:center; padding-bottom:0;">
-        <h3 class="modal-title" style="font-size:1.25rem;">Tratamiento Finalizado</h3>
-      </div>
-      <div class="modal-body" style="padding-top:1rem;">
-        <div style="color:var(--primary); margin-bottom:1rem;">
-          <i data-lucide="check-circle" style="width:48px; height:48px;"></i>
-        </div>
-        <p style="margin-bottom: 1.5rem; font-size:1rem; color:var(--text);">¿Presenta actualmente otro problema odontológico que requiera atención?</p>
-        <div style="display:flex; gap:1rem; justify-content:center;">
-          <button class="btn btn-outline" style="flex:1" onclick="handleReingresoOption('no')">No, estoy bien</button>
-          <button class="btn btn-primary" style="flex:1" onclick="handleReingresoOption('si')">Sí, necesito atención</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Nuevo Caso -->
-  <div class="modal-overlay" id="modal-nuevo-caso">
-    <div class="modal">
-      <div class="modal-header">
-        <h3 class="modal-title">Registrar Nuevo Caso</h3>
-        <button class="modal-close" onclick="closeModal('modal-nuevo-caso')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
-      </div>
-      <form onsubmit="handleSubmitNuevoCaso(event)">
-        <div class="form-group">
-          <label class="form-label">Problema Odontológico (Especialidad)</label>
-          <select class="form-select" id="new-case-problema" required>
-            <option value="">Seleccione</option>
-            <option value="Ortodoncia">Ortodoncia</option>
-            <option value="Extracción">Extracción</option>
-            <option value="Limpieza dental">Limpieza dental</option>
-            <option value="Caries">Caries</option>
-            <option value="Endodoncia">Endodoncia</option>
-            <option value="Prótesis">Prótesis</option>
-            <option value="Ortopedia">Ortopedia</option>
-            <option value="Periodoncia">Periodoncia</option>
-            <option value="Otro">Otro</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Descripción del caso / Observaciones clínicas</label>
-          <textarea class="form-textarea" id="new-case-descripcion" rows="3" required placeholder="Describa brevemente su problema actual..."></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Disponibilidad</label>
-          <select class="form-select" id="new-case-disponibilidad" required>
-            <option value="disponible">Disponible</option>
-            <option value="ocupado">Ocupado</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Publicar Solicitud de Atención</button>
-      </form>
-    </div>
-  </div>
-
   <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
 
-  <script src="/js/libs/supabase-js.js"></script>
+  <!-- Scripts -->
   <script src="/js/libs/lucide.js"></script>
+  <script src="/js/libs/jspdf.umd.min.js"></script>
+  <script src="/js/libs/jspdf.plugin.autotable.min.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
@@ -394,6 +414,41 @@
   <script src="/js/dashboard-paciente.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+
+    // Manejo visual del selector de estrellas
+    function setRating(val) {
+      // Sincronizar ambos campos ocultos
+      document.getElementById('rating-score').value = val;
+      const pun = document.getElementById('calificar-puntuacion');
+      if (pun) pun.value = val;
+      document.querySelectorAll('.star-btn').forEach(s => {
+        const v = parseInt(s.getAttribute('data-val'));
+        s.style.filter = v <= val ? 'none' : 'grayscale(1)';
+        s.style.color = v <= val ? '#f59e0b' : '';
+        s.style.transform = v <= val ? 'scale(1.15)' : 'scale(1)';
+      });
+    }
+
+    // Helper para tabs de solicitudes
+    function showReqTab(status) {
+      document.querySelectorAll('#section-solicitudes .tab').forEach(t => t.classList.remove('active'));
+      event?.target?.classList?.add('active');
+      if (typeof loadPatientRequestsList === 'function') {
+        sectionLoaded['solicitudes'] = false;
+        loadPatientRequestsList(status === 'todas' ? null : status);
+      }
+    }
+
+    // Helper para tabs de citas
+    function showApptTab(status) {
+      document.querySelectorAll('#section-citas .tab').forEach(t => t.classList.remove('active'));
+      event?.target?.classList?.add('active');
+      if (typeof loadPatientAppointments === 'function') {
+        sectionLoaded['citas'] = false;
+        loadPatientAppointments(status === 'todas' ? null : status);
+      }
+    }
   </script>
 </body>
 </html>
+

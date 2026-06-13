@@ -17,8 +17,10 @@
   <!-- ================================ HERO ================================ -->
   <section class="landing-hero">
     <nav class="landing-nav">
-      <div class="landing-nav-logo">
-        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 32px; width: auto;">
+      <div class="landing-nav-logo dual-logos" style="display:flex; align-items:center; gap: 0.5rem;">
+        <img src="/assets/Unerg-1.png" alt="UNERG Logo" class="institutional-logo unerg-logo" style="height:48px; width:auto; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+        <img src="/assets/logo%202.png" alt="Odontología Logo" class="institutional-logo odontologia-logo" style="height:48px; width:auto;">
+        <span style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 1rem; margin-left: 0.5rem; font-weight: 900; font-size: 1.4rem;">OdontoUNERG</span>
       </div>
       <!-- Botón hamburguesa para móvil -->
       <button class="landing-nav-hamburger" id="nav-hamburger" onclick="toggleMobileNav()" aria-label="Menú">
@@ -37,10 +39,10 @@
       <div class="landing-hero-left">
         <div class="landing-hero-badge"><i data-lucide="graduation-cap" style="width:16px;height:16px;"></i> Universidad Nacional Experimental Rómulo Gallegos</div>
         <h1 class="landing-hero-title">
-          Conectando <span>Estudiantes</span> con <span>Pacientes</span>
+          Sistema de Gestión de Pacientes para la <span>Clínica Odontológica Universitaria</span>
         </h1>
         <p class="landing-hero-desc">
-          Plataforma digital que facilita la organización de citas, solicitudes y comunicación entre estudiantes de odontología y pacientes, dentro de un entorno moderno y accesible.
+          Plataforma oficial de la UNERG para conectar a la comunidad con nuestros estudiantes de odontología. Facilitamos la atención clínica en un entorno académico de excelencia y compromiso social.
         </p>
         <div class="landing-hero-actions">
           <!-- Botón limpio: sin flecha ni icono extra -->
@@ -67,11 +69,9 @@
         </div>
       </div>
       <div class="landing-hero-right">
-        <!-- Decoración visual -->
-        <div style="width:350px;height:350px;background:rgba(255,255,255,0.05);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,0.1);">
-          <div style="width:250px;height:250px;background:rgba(255,255,255,0.08);border-radius:50%;display:flex;align-items:center;justify-content:center;">
-            <div style="color:white;"><i data-lucide="heart-pulse" style="width:80px;height:80px;"></i></div>
-          </div>
+        <div style="position: relative; width: 100%; height: 400px; display: flex; justify-content: center; align-items: center;">
+          <img src="/assets/560214195_1250745063761425_2912322081511786866_n.jpg" alt="UNERG Odontología" style="position: absolute; width: 250px; height: 250px; object-fit: cover; border-radius: 12px; border: 4px solid rgba(255,255,255,0.2); transform: rotate(-5deg) translateX(-60px) translateY(20px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); z-index: 2; transition: transform 0.3s ease; cursor: pointer;" onmouseover="this.style.transform='rotate(0deg) scale(1.05) translateX(-60px) translateY(20px)'; this.style.zIndex='4'" onmouseout="this.style.transform='rotate(-5deg) translateX(-60px) translateY(20px)'; this.style.zIndex='2'">
+          <img src="/assets/561047754_1250745060428092_3583433181388794964_n.jpg" alt="Clínica UNERG" style="position: absolute; width: 280px; height: 320px; object-fit: cover; border-radius: 12px; border: 4px solid rgba(255,255,255,0.2); transform: rotate(4deg) translateX(70px) translateY(-20px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); z-index: 3; transition: transform 0.3s ease; cursor: pointer;" onmouseover="this.style.transform='rotate(0deg) scale(1.05) translateX(70px) translateY(-20px)'; this.style.zIndex='4'" onmouseout="this.style.transform='rotate(4deg) translateX(70px) translateY(-20px)'; this.style.zIndex='3'">
         </div>
       </div>
     </div>
@@ -232,8 +232,10 @@
     </div>
   </section>
 
+
+
   <!-- ================================ ABOUT ================================ -->
-  <section class="landing-section landing-section-light" id="about">
+  <section class="landing-section landing-section-gray" id="about">
     <div class="landing-section-header">
       <span class="landing-section-label">Acerca del Sistema</span>
       <h2 class="landing-section-title">Arquitectura del Sistema</h2>
@@ -339,15 +341,15 @@
               userRole = s.user.role;
             }
           } else {
-            const { data: sessionData } = await supabase.auth.getSession();
-            if (sessionData && sessionData.session) {
-               isLoggedIn = true;
-               // Get username from metadata if available, otherwise generic
-               userName = sessionData.session.user.user_metadata?.full_name || "Mi Perfil";
-               
-               // Role is usually in user_metadata in this project setup, or we can just redirect to a generic dashboard router
-               userRole = sessionData.session.user.user_metadata?.role || '';
-               // If role is missing, the backend / frontend will handle redirection anyway when going to a dashboard
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+               // Verificar validez real del token con el servidor
+               const { data: { user }, error } = await supabase.auth.getUser();
+               if (user && !error) {
+                 isLoggedIn = true;
+                 userName = user.user_metadata?.full_name || "Mi Perfil";
+                 userRole = user.user_metadata?.role || '';
+               }
             }
           }
 

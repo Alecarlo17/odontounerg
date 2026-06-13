@@ -90,19 +90,22 @@ async function countByRole(role) {
 }
 
 /**
- * Eliminar perfil de un usuario
+ * Suspender perfil de un usuario
  */
-async function deleteProfile(userId) {
+async function suspendProfile(userId, reason) {
   try {
     const { error } = await db.supabase
       .from('profiles')
-      .delete()
+      .update({ 
+        is_suspended: true,
+        suspension_reason: reason 
+      })
       .eq('id', userId);
 
     if (error) throw error;
     return true;
   } catch (e) {
-    console.error('Error en deleteProfile:', e);
+    console.error('Error en suspendProfile:', e);
     return false;
   }
 }
@@ -112,5 +115,5 @@ module.exports = {
   getAllProfiles,
   updateUserProfile,
   countByRole,
-  deleteProfile
+  suspendProfile
 };

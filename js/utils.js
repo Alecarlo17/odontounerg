@@ -188,16 +188,36 @@ function avatarHTML(name, url, size = '') {
  */
 function getStatusInfo(status) {
   const map = {
-    pending: { text: 'Pendiente', class: 'badge-warning' },
-    accepted: { text: 'Aceptada', class: 'badge-success' },
-    rejected: { text: 'Rechazada', class: 'badge-error' },
-    cancelled: { text: 'Cancelada', class: 'badge-gray' },
-    active: { text: 'Activa', class: 'badge-primary' },
-    completed: { text: 'Completada', class: 'badge-success' },
-    proposed: { text: 'Propuesta', class: 'badge-warning' },
-    confirmed: { text: 'Confirmada', class: 'badge-success' }
+    pending:      { text: 'Pendiente',       class: 'badge-warning' },
+    accepted:     { text: 'Aceptada',        class: 'badge-success' },
+    active: { text: 'En Tratamiento',  class: 'badge-primary' },
+    rejected:     { text: 'Rechazada',       class: 'badge-error' },
+    cancelled:    { text: 'Cancelada',       class: 'badge-gray' },
+    abandoned:    { text: 'Abandonada',      class: 'badge-error' },
+    active:       { text: 'Activa',          class: 'badge-primary' },
+    completed:    { text: 'Completada',      class: 'badge-success' },
+    proposed:     { text: 'Propuesta',       class: 'badge-warning' },
+    confirmed:    { text: 'Confirmada',      class: 'badge-success' }
   };
   return map[status] || { text: status, class: 'badge-gray' };
+}
+
+/**
+ * Traducir disponibilidad de paciente con badge visual y emoji
+ * @param {string} status 
+ * @returns {string} HTML del badge
+ */
+function getPatientStatusBadge(status) {
+  const norm = (status || '').toLowerCase().trim();
+  const map = {
+    'disponible': { emoji: '🟢', text: 'Disponible', class: 'badge-success' },
+    'asignado': { emoji: '🟡', text: 'Asignado', class: 'badge-warning' },
+    'en_tratamiento': { emoji: '🔵', text: 'En tratamiento', class: 'badge-primary' },
+    'alta_medica': { emoji: '⚫', text: 'Alta médica', class: 'badge-gray' },
+    'suspendido': { emoji: '🔴', text: 'Suspendido', class: 'badge-error' }
+  };
+  const s = map[norm] || { emoji: '⚪', text: status || 'Desconocido', class: 'badge-gray' };
+  return `<span class="badge ${s.class}">${s.emoji} ${s.text}</span>`;
 }
 
 /**
@@ -265,9 +285,8 @@ function confirmAction(title, message) {
  * Inicializar dark mode según preferencia guardada
  */
 function initDarkMode() {
-  const saved = localStorage.getItem('theme');
-  if (saved === 'dark') {
-    document.documentElement.setAttribute('data-theme', 'dark');
+  if (localStorage.getItem('darkMode') === 'true') {
+    document.body.classList.add('dark');
   }
   updateDarkModeIcon();
 }
@@ -276,10 +295,8 @@ function initDarkMode() {
  * Toggle dark mode
  */
 function toggleDarkMode() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const newTheme = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+  document.body.classList.toggle('dark');
+  localStorage.setItem('darkMode', document.body.classList.contains('dark'));
   updateDarkModeIcon();
 }
 
@@ -287,7 +304,7 @@ function toggleDarkMode() {
  * Actualizar ícono del toggle
  */
 function updateDarkModeIcon() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const isDark = document.body.classList.contains('dark');
   const icon = document.getElementById('dark-mode-icon');
   if (icon) {
     icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
@@ -412,4 +429,22 @@ window.addEventListener('resize', () => {
     document.body.style.overflow = '';
   }
 });
+
+/**
+ * Establecer link activo en el sidebar basado en el onclick handler
+ * @param {string} sectionName 
+ */
+function setActiveSidebarLink(sectionName) {
+  document.querySelectorAll('.sidebar-link').forEach(link => {
+    link.classList.remove('active');
+  });
+  // Buscar el link que llama a showSection con ese nombre
+  const links = document.querySelectorAll('.sidebar-link');
+  links.forEach(link => {
+    const onclick = link.getAttribute('onclick') || '';
+    if (onclick.includes(`'${sectionName}'`) || onclick.includes(`"${sectionName}"`)) {
+      link.classList.add('active');
+    }
+  });
+}
 

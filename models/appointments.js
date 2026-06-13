@@ -11,7 +11,7 @@ const db = require('../config/database');
 async function createAppointment(citaData) {
   try {
     const created_at = new Date().toISOString();
-    
+
     const { data, error } = await db.supabase
       .from('appointments')
       .insert({
@@ -36,19 +36,73 @@ async function createAppointment(citaData) {
 }
 
 /**
+ * Verificar cita duplicada: mismo estudiante o paciente en el mismo rango horario
+ * @returns {conflict: boolean, message: string}
+ */
+async function checkDuplicateAppointment(studentId, patientId, dateStr, durationMinutes = 60) {
+  try {
+    const startTime = new Date(dateStr);
+    const endTime = new Date(startTime.getTime() + durationMinutes * 60000);
+
+    // Obtener todas las solicitudes activas del estudiante y el paciente
+    const { data: studentRequests } = await db.supabase
+      .from('requests')
+      .select('id')
+      .eq('student_id', studentId)
+      .in('status', ['accepted', 'active']);
+
+    const { data: patientRequests } = await db.supabase
+      .from('requests')
+      .select('id')
+      .eq('patient_id', patientId)
+      .in('status', ['accepted', 'active']);
+
+    const studentReqIds = (studentRequests || []).map(r => r.id);
+    const patientReqIds = (patientRequests || []).map(r => r.id);
+    const allReqIds = [...new Set([...studentReqIds, ...patientReqIds])];
+
+    if (allReqIds.length === 0) return { conflict: false };
+
+    // Buscar citas confirmed/proposed en esos requests
+    const { data: existingAppts } = await db.supabase
+      .from('appointments')
+      .select('date, duration_minutes, request_id')
+      .in('request_id', allReqIds)
+      .in('status', ['proposed', 'confirmed']);
+
+    for (const appt of (existingAppts || [])) {
+      const apptStart = new Date(appt.date);
+      const apptEnd = new Date(apptStart.getTime() + (appt.duration_minutes || 60) * 60000);
+
+      // Verificar solapamiento: dos rangos se solapan si start1 < end2 && start2 < end1
+      if (startTime < apptEnd && apptStart < endTime) {
+        return {
+          conflict: true,
+          message: `Ya existe una cita en ese horario (${apptStart.toLocaleString('es-VE')}). Por favor selecciona otro horario.`
+        };
+      }
+    }
+
+    return { conflict: false };
+  } catch (e) {
+    console.error('Error en checkDuplicateAppointment:', e);
+    return { conflict: false }; // En caso de error, permitir (no bloquear)
+  }
+}
+
+/**
  * Obtener citas por ID de usuario
  */
 async function getAppointmentsByUser(userId, status = null) {
   try {
-    // Primero obtener los requests relacionados con el usuario
     const { data: userRequests, error: reqError } = await db.supabase
       .from('requests')
       .select('id')
       .or(`student_id.eq.${userId},patient_id.eq.${userId}`);
-      
+
     if (reqError) throw reqError;
     if (!userRequests || userRequests.length === 0) return [];
-    
+
     const requestIds = userRequests.map(r => r.id);
 
     let query = db.supabase
@@ -65,22 +119,14 @@ async function getAppointmentsByUser(userId, status = null) {
       .in('request_id', requestIds)
       .order('date', { ascending: true });
 
-    if (status) {
-      query = query.eq('status', status);
-    }
+    if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
     if (error) throw error;
-    
-    // Normalizar la respuesta al formato esperado por el frontend
+
     return (data || []).map(a => {
-      // Supabase retorna array si la foreign key no es unívoca desde su perspectiva o si usa view,
-      // extraemos el primer elemento si request viene como array.
       const req = Array.isArray(a.request) ? a.request[0] : a.request;
-      return {
-        ...a,
-        request: req
-      };
+      return { ...a, request: req };
     });
   } catch (e) {
     console.error('Error en getAppointmentsByUser:', e);
@@ -97,12 +143,40 @@ async function updateAppointmentStatus(appointmentId, newStatus) {
       .from('appointments')
       .update({ status: newStatus })
       .eq('id', appointmentId);
-      
+
     if (error) throw error;
     return true;
   } catch (e) {
     console.error('Error en updateAppointmentStatus:', e);
     return false;
+  }
+}
+
+/**
+ * Obtener una cita por ID (para leer datos del request asociado)
+ */
+async function getAppointmentById(appointmentId) {
+  try {
+    const { data, error } = await db.supabase
+      .from('appointments')
+      .select(`
+        *,
+        request:requests(student_id, patient_id,
+          student:student_id(full_name),
+          patient:patient_id(full_name)
+        )
+      `)
+      .eq('id', appointmentId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    const req = Array.isArray(data.request) ? data.request[0] : data.request;
+    return { ...data, request: req };
+  } catch (e) {
+    console.error('Error en getAppointmentById:', e);
+    return null;
   }
 }
 
@@ -126,10 +200,7 @@ async function getAllAppointments() {
 
     return (data || []).map(a => {
       const req = Array.isArray(a.request) ? a.request[0] : a.request;
-      return {
-        ...a,
-        request: req
-      };
+      return { ...a, request: req };
     });
   } catch (e) {
     console.error('Error en getAllAppointments:', e);
@@ -139,7 +210,9 @@ async function getAllAppointments() {
 
 module.exports = {
   createAppointment,
+  checkDuplicateAppointment,
   getAppointmentsByUser,
+  getAppointmentById,
   updateAppointmentStatus,
   getAllAppointments
 };

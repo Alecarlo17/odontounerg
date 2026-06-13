@@ -113,10 +113,62 @@ async function sendMessage(conversationId, senderId, content) {
       });
 
     if (error) throw error;
+    
+    await notifyReceiver(conversationId, senderId);
     return true;
   } catch (e) {
     console.error('Error en sendMessage:', e);
     return false;
+  }
+}
+
+/**
+ * Notificar al receptor sobre el nuevo mensaje
+ */
+async function notifyReceiver(conversationId, senderId) {
+  try {
+    const { data: conv } = await db.supabase
+      .from('conversations')
+      .select('request_id')
+      .eq('id', conversationId)
+      .single();
+      
+    if (!conv) return;
+
+    const { data: req } = await db.supabase
+      .from('requests')
+      .select('student_id, patient_id')
+      .eq('id', conv.request_id)
+      .single();
+
+    if (!req) return;
+
+    const receiverId = (senderId === req.student_id) ? req.patient_id : req.student_id;
+
+    // Verificar si ya tiene una notificación de chat sin leer
+    const { data: existing } = await db.supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', receiverId)
+      .eq('tipo', 'chat')
+      .eq('referencia_id', conversationId)
+      .eq('leida', false)
+      .limit(1);
+
+    if (!existing || existing.length === 0) {
+      await db.supabase.from('notifications').insert({
+        id: require('crypto').randomUUID(),
+        user_id: receiverId,
+        tipo: 'chat',
+        titulo: 'Nuevo mensaje',
+        mensaje: 'Tienes un nuevo mensaje sin leer.',
+        referencia_id: conversationId,
+        created_at: new Date().toISOString(),
+        leida: false
+      });
+    }
+  } catch(e) {
+    console.error('Error notificando receptor:', e);
   }
 }
 
@@ -138,6 +190,8 @@ async function sendImageMessage(conversationId, senderId, imageUrl) {
       });
 
     if (error) throw error;
+    
+    await notifyReceiver(conversationId, senderId);
     return true;
   } catch (e) {
     console.error('Error en sendImageMessage:', e);
@@ -153,7 +207,7 @@ async function reportUser(reportData) {
     const created_at = new Date().toISOString();
     
     const { error } = await db.supabase
-      .from('user_reports')
+      .from('reports')
       .insert({
         reporter_id: reportData.reporterId,
         reported_id: reportData.reportedId,
@@ -178,11 +232,11 @@ async function reportUser(reportData) {
 async function getAllReports() {
   try {
     const { data, error } = await db.supabase
-      .from('user_reports')
+      .from('reports')
       .select(`
         *,
-        reporter:profiles!user_reports_reporter_id_fkey(full_name),
-        reported:profiles!user_reports_reported_id_fkey(full_name)
+        reporter:profiles!reports_reporter_id_fkey(full_name),
+        reported:profiles!reports_reported_id_fkey(full_name)
       `)
       .order('created_at', { ascending: false });
 

@@ -14,7 +14,8 @@ async function getPatientById(patientId) {
       .from('profiles')
       .select(`
         *,
-        patients(*)
+        patients(*),
+        initial_diagnosis(*)
       `)
       .eq('id', patientId)
       .single();
@@ -23,6 +24,9 @@ async function getPatientById(patientId) {
     
     if (data && data.patients) {
       const pat = Array.isArray(data.patients) ? data.patients[0] : data.patients;
+      const activeDiagnosis = Array.isArray(data.initial_diagnosis) 
+        ? data.initial_diagnosis.find(d => d.activo) || data.initial_diagnosis[0]
+        : data.initial_diagnosis;
       if (pat) {
         return {
           ...data,
@@ -32,7 +36,8 @@ async function getPatientById(patientId) {
           medical_history: pat.medical_history,
           consultation_reason: pat.consultation_reason,
           accepts_requests: pat.accepts_requests,
-          gender: pat.gender
+          gender: pat.gender,
+          initial_diagnosis: activeDiagnosis || null
         };
       }
     }
@@ -61,7 +66,8 @@ async function getAvailablePatients(treatment = null) {
       .from('profiles')
       .select(`
         id, full_name, email, phone, disponibilidad, role, avatar_url,
-        patients!inner(age, consultation_reason, medical_history, gender, accepts_requests)
+        patients!inner(age, consultation_reason, medical_history, gender, accepts_requests),
+        initial_diagnosis(especialidad_requerida, prioridad, nivel_dolor, tiempo_evolucion, problema_principal, created_at, activo)
       `)
       .eq('role', 'patient')
       .eq('patients.accepts_requests', true);
@@ -80,6 +86,10 @@ async function getAvailablePatients(treatment = null) {
     
     return (data || []).map(row => {
       const pat = Array.isArray(row.patients) ? row.patients[0] : row.patients;
+      const activeDiagnosis = Array.isArray(row.initial_diagnosis) 
+        ? row.initial_diagnosis.find(d => d.activo) || row.initial_diagnosis[0]
+        : row.initial_diagnosis;
+
       return {
         id: row.id,
         full_name: row.full_name,
@@ -93,7 +103,8 @@ async function getAvailablePatients(treatment = null) {
           consultation_reason: pat.consultation_reason,
           medical_history: pat.medical_history,
           gender: pat.gender
-        }
+        },
+        initial_diagnosis: activeDiagnosis || null
       };
     });
   } catch (e) {

@@ -13,11 +13,14 @@
   <div class="dashboard-layout">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <a href="/" class="sidebar-logo" style="display:flex;align-items:center;text-decoration:none;">
-          <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 48px; width: auto; margin-right: 10px;">
+        <a href="/" class="sidebar-logo" style="display:flex; flex-direction:column; align-items:center; text-decoration:none; text-align:center; padding: 1rem 0; gap: 0.5rem;">
+          <div style="display:flex; gap: 12px; align-items:center; justify-content:center;">
+            <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 42px; width: auto; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+            <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 42px; width: auto;">
+          </div>
           <div>
-            <span class="sidebar-logo-text" style="color:var(--text);">OdontoUNERG</span>
-            <span class="sidebar-logo-sub" style="color:var(--text-muted);">Admin</span>
+            <span class="sidebar-logo-text" style="color:var(--text); font-size: 1.25rem; display:block;">OdontoUNERG</span>
+            <span class="sidebar-logo-sub" style="color:var(--text-muted); font-size: 0.85rem; display:block;">Admin</span>
           </div>
         </a>
       </div>
@@ -33,7 +36,9 @@
           <span class="sidebar-section-title">Supervisión</span>
           <a class="sidebar-link" onclick="showSection('solicitudes')"><i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes</a>
           <a class="sidebar-link" onclick="showSection('citas')"><i data-lucide="calendar" class="sidebar-link-icon"></i> Citas</a>
-          <a class="sidebar-link" onclick="showSection('reportes')"><i data-lucide="flag" class="sidebar-link-icon"></i> Reportes</a>
+          <a class="sidebar-link" onclick="showSection('tratamientos')"><i data-lucide="stethoscope" class="sidebar-link-icon"></i> Tratamientos</a>
+          <a class="sidebar-link" onclick="showSection('actividad')"><i data-lucide="activity" class="sidebar-link-icon"></i> Actividad</a>
+          <a class="sidebar-link" onclick="showSection('reportes')"><i data-lucide="bar-chart-3" class="sidebar-link-icon"></i> Reportes</a>
         </div>
       </nav>
       <div class="sidebar-footer">
@@ -107,7 +112,7 @@
             </select>
           </div>
           <div class="card">
-            <div class="card-body table-wrapper" id="users-table"></div>
+            <div class="card-body table-wrapper" id="users-list"></div>
           </div>
         </section>
 
@@ -115,7 +120,7 @@
         <section id="section-estudiantes" class="hidden">
           <div class="card">
             <div class="card-header"><span class="card-title"><i data-lucide="graduation-cap"></i> Estudiantes Registrados</span></div>
-            <div class="card-body table-wrapper" id="students-table"></div>
+            <div class="card-body table-wrapper" id="students-list"></div>
           </div>
         </section>
 
@@ -123,7 +128,7 @@
         <section id="section-pacientes" class="hidden">
           <div class="card">
             <div class="card-header"><span class="card-title"><i data-lucide="heart"></i> Pacientes Registrados</span></div>
-            <div class="card-body table-wrapper" id="patients-table"></div>
+            <div class="card-body table-wrapper" id="patients-list"></div>
           </div>
         </section>
 
@@ -131,7 +136,7 @@
         <section id="section-solicitudes" class="hidden">
           <div class="card">
             <div class="card-header"><span class="card-title"><i data-lucide="mail"></i> Todas las Solicitudes</span></div>
-            <div class="card-body table-wrapper" id="all-requests-table"></div>
+            <div class="card-body table-wrapper" id="all-requests-list"></div>
           </div>
         </section>
 
@@ -139,7 +144,7 @@
         <section id="section-citas" class="hidden">
           <div class="card">
             <div class="card-header"><span class="card-title"><i data-lucide="calendar"></i> Todas las Citas</span></div>
-            <div class="card-body table-wrapper" id="all-appointments-table"></div>
+            <div class="card-body table-wrapper" id="all-appointments-list"></div>
           </div>
         </section>
 
@@ -152,22 +157,75 @@
             </div>
           </div>
         </section>
+        <!-- TRATAMIENTOS -->
+        <section id="section-tratamientos" class="hidden">
+          <div class="card">
+            <div class="card-header"><span class="card-title"><i data-lucide="stethoscope"></i> Tratamientos Registrados</span>
+              <button class="btn btn-sm btn-outline" onclick="generateAdminStatsReport()"><i data-lucide="download" style="width:14px;height:14px;"></i> PDF Estadísticas</button>
+            </div>
+            <div class="card-body" id="treatments-list"></div>
+          </div>
+        </section>
+
+        <!-- ACTIVIDAD -->
+        <section id="section-actividad" class="hidden">
+          <div class="card">
+            <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+              <h2 class="card-title">Historial de Actividad</h2>
+              <div class="filters-bar" style="margin-top:0;">
+                <select id="activity-date-filter" class="form-input" style="width:auto;min-width:150px;" onchange="loadActivityLog()">
+                  <option value="hoy">Hoy</option>
+                  <option value="7dias">Últimos 7 días</option>
+                  <option value="30dias">Últimos 30 días</option>
+                  <option value="mes">Este mes</option>
+                  <option value="todos" selected>Todos</option>
+                </select>
+              </div>
+            </div>
+            <div class="card-body" id="activity-list"></div>
+          </div>
+        </section>
+
+
       </div>
     </main>
   </div>
 
   <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
 
+  <!-- Modal Suspender Usuario -->
+  <div class="modal-overlay" id="modal-suspender">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Suspender Usuario</h3>
+        <button class="modal-close" onclick="closeModal('modal-suspender')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleSuspendSubmit(event)">
+        <input type="hidden" id="suspend-user-id">
+        <div class="form-group">
+          <label class="form-label">Motivo de Suspensión</label>
+          <textarea class="form-textarea" id="suspend-reason" placeholder="Indique la razón para suspender a este usuario..." required></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger btn-block">Confirmar Suspensión</button>
+      </form>
+    </div>
+  </div>
+
   <script src="/js/libs/chart.umd.min.js"></script>
-  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/libs/lucide.js"></script>
+  <script src="/js/libs/jspdf.umd.min.js"></script>
+  <script src="/js/libs/jspdf.plugin.autotable.min.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
   <script src="/js/notificaciones.js"></script>
+  <script src="/js/reportes.js"></script>
   <script src="/js/dashboard-admin.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
   </script>
 </body>
 </html>
+
+

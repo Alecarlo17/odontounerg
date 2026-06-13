@@ -15,11 +15,14 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
-        <a href="/" class="sidebar-logo" style="display:flex;align-items:center;text-decoration:none;">
-          <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 48px; width: auto; margin-right: 10px;">
+        <a href="/" class="sidebar-logo" style="display:flex; flex-direction:column; align-items:center; text-decoration:none; text-align:center; padding: 1rem 0; gap: 0.5rem;">
+          <div style="display:flex; gap: 12px; align-items:center; justify-content:center;">
+            <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 42px; width: auto; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+            <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 42px; width: auto;">
+          </div>
           <div>
-            <span class="sidebar-logo-text" style="color:var(--text);">OdontoUNERG</span>
-            <span class="sidebar-logo-sub" style="color:var(--text-muted);">Estudiante</span>
+            <span class="sidebar-logo-text" style="color:var(--text); font-size: 1.25rem; display:block;">OdontoUNERG</span>
+            <span class="sidebar-logo-sub" style="color:var(--text-muted); font-size: 0.85rem; display:block;">Estudiante</span>
           </div>
         </a>
       </div>
@@ -41,6 +44,7 @@
           <span class="sidebar-section-title">Gestión</span>
           <a class="sidebar-link" onclick="showSection('citas')">
             <i data-lucide="calendar" class="sidebar-link-icon"></i> Citas
+            <span class="sidebar-link-badge hidden" id="appt-badge">0</span>
           </a>
           <a class="sidebar-link" onclick="showSection('chat')">
             <i data-lucide="message-circle" class="sidebar-link-icon"></i> Chat
@@ -132,13 +136,18 @@
 
         <!-- SECCIÓN PACIENTES -->
         <section id="section-pacientes" class="hidden">
-          <div class="filters-bar">
+          <!-- Banner límite 3 pacientes -->
+          <div id="capacity-banner" class="hidden" style="background:linear-gradient(135deg,#7f1d1d,#ef4444);color:#fff;padding:14px 20px;border-radius:12px;margin-bottom:1rem;display:flex;align-items:center;gap:12px;">
+            <span style="font-size:1.5rem">⚠️</span>
+            <div><strong>Capacidad máxima alcanzada</strong><br><small>Tienes 3 pacientes activos. Da de alta a uno para recibir nuevos pacientes.</small></div>
+          </div>
+          <div class="filters-bar" id="search-filters-bar">
             <div class="search-input-wrapper">
               <span class="search-icon"><i data-lucide="search"></i></span>
-              <input type="text" class="form-input" id="search-patients" placeholder="Buscar pacientes..." oninput="filterPatients()">
+              <input type="text" class="form-input" id="search-patients" placeholder="Buscar por nombre..." oninput="debouncedFilter()">
             </div>
-            <select class="filter-select" id="filter-treatment" onchange="filterPatients()">
-              <option value="all">Todos los tratamientos</option>
+            <select class="filter-select" id="filter-especialidad" onchange="filterPatients()">
+              <option value="">Todas las especialidades</option>
               <option value="Ortodoncia">Ortodoncia</option>
               <option value="Extracción">Extracción</option>
               <option value="Limpieza dental">Limpieza dental</option>
@@ -148,6 +157,23 @@
               <option value="Ortopedia">Ortopedia</option>
               <option value="Periodoncia">Periodoncia</option>
               <option value="Otro">Otro</option>
+            </select>
+            <select class="filter-select" id="filter-prioridad" onchange="filterPatients()">
+              <option value="">Cualquier prioridad</option>
+              <option value="alta">🔴 Alta</option>
+              <option value="media">🟡 Media</option>
+              <option value="baja">🟢 Baja</option>
+            </select>
+            <select class="filter-select" id="filter-sexo" onchange="filterPatients()">
+              <option value="">Cualquier sexo</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+            </select>
+            <select class="filter-select" id="filter-orden" onchange="filterPatients()">
+              <option value="prioridad">Ordenar: Prioridad</option>
+              <option value="fecha">Ordenar: Fecha</option>
+              <option value="edad">Ordenar: Edad</option>
+              <option value="especialidad">Ordenar: Especialidad</option>
             </select>
           </div>
           <div id="patients-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap:1rem;"></div>
@@ -400,50 +426,47 @@
         <h3 id="perfil-paciente-nombre" style="margin-bottom: 0.25rem;">Cargando...</h3>
         <div id="perfil-paciente-badges" style="margin-bottom: 1.5rem;"></div>
         <div style="text-align: left; background: var(--gray-50); padding: 1rem; border-radius: var(--radius); font-size: 0.9rem;">
+          <p style="margin-bottom: 0.5rem;"><strong>Género:</strong> <span id="perfil-paciente-genero">-</span></p>
+          <p style="margin-bottom: 0.5rem;"><strong>Contacto:</strong> <span id="perfil-paciente-telefono">-</span></p>
           <p style="margin-bottom: 0.5rem;"><strong>Dirección:</strong> <span id="perfil-paciente-direccion">-</span></p>
-          <p style="margin-bottom: 0.5rem;"><strong>Disponibilidad:</strong> <span id="perfil-paciente-disponibilidad">-</span></p>
-          <p style="margin-bottom: 0.5rem;"><strong>Tratamiento solicitado:</strong> <span id="perfil-paciente-tratamiento">-</span></p>
+          <p style="margin-bottom: 0.5rem;"><strong>Fecha de registro:</strong> <span id="perfil-paciente-fecha-registro">-</span></p>
+          <hr style="margin:0.75rem 0; border:none; border-top:1px solid var(--border);">
+          <p style="margin-bottom: 0.5rem;"><strong>Problema principal:</strong> <span id="perfil-paciente-tratamiento">-</span></p>
           <p style="margin-bottom: 0;"><strong>Antecedentes médicos:</strong></p>
           <p id="perfil-paciente-antecedentes" style="color: var(--text-secondary); margin-top: 0.25rem; font-size: 0.85rem;">-</p>
+          <p style="margin-top: 0.5rem; margin-bottom: 0;"><strong>Disponibilidad:</strong> <span id="perfil-paciente-disponibilidad">-</span></p>
         </div>
         <input type="hidden" id="current-perfil-paciente-id">
-        <button class="btn btn-outline" style="width: 100%; margin-top: 1rem;" onclick="openCalificarPacienteModal()">Calificar Paciente</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal Calificar Paciente -->
-  <div class="modal-overlay" id="modal-calificar-paciente">
+  <!-- Modal Dar de Alta -->
+  <div class="modal-overlay" id="modal-dar-alta">
     <div class="modal">
       <div class="modal-header">
-        <h3 class="modal-title">Calificar Paciente</h3>
-        <button class="modal-close" onclick="closeModal('modal-calificar-paciente')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+        <h3 class="modal-title">Dar de Alta y Cierre Clínico</h3>
+        <button class="modal-close" onclick="closeModal('modal-dar-alta')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
       </div>
-      <form onsubmit="handleCalificarPaciente(event)">
-        <input type="hidden" id="calificar-paciente-id">
+      <form onsubmit="handleSubmitDischarge(event)">
+        <input type="hidden" id="dar-alta-request-id">
+        <input type="hidden" id="dar-alta-patient-id">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+          Al dar de alta, el caso clínico se cerrará. Por favor, evalúe la asistencia y responsabilidad del paciente durante el tratamiento.
+        </p>
         <div class="form-group">
-          <label class="form-label">Responsabilidad</label>
-          <select class="form-select" id="calificar-paciente-responsabilidad" required>
+          <label class="form-label">Asistencia y Responsabilidad</label>
+          <select class="form-select" id="dar-alta-responsabilidad" required>
             <option value="">Seleccione</option>
-            <option value="responsable">Responsable</option>
-            <option value="irresponsable">Irresponsable</option>
+            <option value="responsable">Responsable (Asistió a las citas)</option>
+            <option value="irresponsable">Irresponsable (Faltó injustificadamente)</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Puntuación (1-5 estrellas)</label>
-          <select class="form-select" id="calificar-paciente-puntuacion" required>
-            <option value="5">⭐⭐⭐⭐⭐ Excelente</option>
-            <option value="4">⭐⭐⭐⭐ Muy Bueno</option>
-            <option value="3">⭐⭐⭐ Bueno</option>
-            <option value="2">⭐⭐ Regular</option>
-            <option value="1">⭐ Deficiente</option>
-          </select>
+          <label class="form-label">Observaciones Finales (opcional)</label>
+          <textarea class="form-textarea" id="dar-alta-comentario" placeholder="Deje un comentario sobre el comportamiento o evolución..."></textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label">Comentario (opcional)</label>
-          <textarea class="form-textarea" id="calificar-paciente-comentario" placeholder="Deje un comentario sobre la atención..."></textarea>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block">Enviar Calificación</button>
+        <button type="submit" class="btn btn-success btn-block">Confirmar Alta Médica</button>
       </form>
     </div>
   </div>
@@ -482,16 +505,79 @@
     </div>
   </div>
 
+  <!-- Modal Sesiones Clínicas (Lista + Formulario) -->
+  <div class="modal-overlay" id="modal-sesiones">
+    <div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="sesiones-modal-title">Sesiones Clínicas</h3>
+        <button class="modal-close" onclick="closeModal('modal-sesiones')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <div style="padding:1.5rem;">
+        <!-- Lista de sesiones existentes -->
+        <div id="sesiones-list" style="margin-bottom:1.25rem;"></div>
+        <!-- Formulario nueva sesión -->
+        <div style="border-top:1px solid var(--border);padding-top:1rem;">
+          <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:1rem;color:var(--primary);">+ Registrar Nueva Sesión</h4>
+          <form onsubmit="handleRegistrarSesion(event)">
+            <div class="form-group">
+              <label class="form-label">Fecha de la sesión</label>
+              <input type="date" class="form-input" id="sesion-fecha" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Procedimiento Realizado *</label>
+              <textarea class="form-textarea" id="sesion-procedimiento" rows="3" placeholder="Ej: Profilaxis dental, restauración clase II, etc." required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Observaciones</label>
+              <textarea class="form-textarea" id="sesion-observaciones" rows="2" placeholder="Condición del paciente, complicaciones, etc."></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Recomendaciones al Paciente</label>
+              <textarea class="form-textarea" id="sesion-recomendaciones" rows="2" placeholder="Indicaciones post-sesión, cuidados, próxima cita..."></textarea>
+            </div>
+            <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+              <button type="submit" class="btn btn-primary" style="flex:1;">Guardar Sesión</button>
+              <button type="button" class="btn btn-outline" onclick="closeModal('modal-sesiones')">Cerrar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Abandono -->
+  <div class="modal-overlay" id="modal-abandon">
+    <div class="modal" style="max-width:480px;">
+      <div class="modal-header" style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
+        <h3 class="modal-title" id="abandon-modal-title" style="color:white;">Marcar Abandono</h3>
+        <button class="modal-close" onclick="closeModal('modal-abandon')" style="color:white;"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <form onsubmit="handleConfirmAbandon(event)" style="padding:1.5rem;">
+        <input type="hidden" id="abandon-request-id">
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius);padding:1rem;margin-bottom:1rem;">
+          <p style="color:#991b1b;font-size:0.9rem;"><strong>⚠ Atención:</strong> Al registrar abandono, el paciente será reactivado en el sistema para que pueda buscar un nuevo estudiante.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Motivo del abandono *</label>
+          <textarea class="form-textarea" id="abandon-reason" rows="3" placeholder="Ej: El paciente dejó de asistir sin justificación durante 3 sesiones consecutivas." required></textarea>
+        </div>
+        <div style="display:flex;gap:0.75rem;">
+          <button type="submit" class="btn" style="flex:1;background:#dc2626;color:white;">Confirmar Abandono</button>
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-abandon')">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
 
-  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/libs/lucide.js"></script>
   
-  <!-- Librerías para Reportes PDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
-  
+  <!-- Librerías para Reportes PDF (locales) -->
+  <script src="/js/libs/jspdf.umd.min.js"></script>
+  <script src="/js/libs/jspdf.plugin.autotable.min.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
@@ -510,3 +596,5 @@
   </script>
 </body>
 </html>
+
+

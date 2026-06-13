@@ -283,3 +283,34 @@ function loadJsPDF() {
     document.head.appendChild(script);
   });
 }
+
+/* =============================================
+   CERTIFICADO DE ALTA MÉDICA (BACKEND NODE.JS)
+   ============================================= */
+async function generateMedicalCertificate(requestId) {
+  showLoading(true);
+  try {
+    const res = await fetch(`/api/certificates/generate/${requestId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const json = await res.json();
+    
+    if (!json.success) {
+      showToast(json.message || 'Error: El certificado requiere el alta médica', 'error');
+      return;
+    }
+
+    showToast('Certificado generado exitosamente', 'success');
+    
+    // Abrir el PDF en una nueva pestaña
+    if (json.url) {
+      window.open(json.url, '_blank');
+    }
+  } catch (e) {
+    console.error(e);
+    showToast('Error al generar el certificado PDF', 'error');
+  } finally {
+    showLoading(false);
+  }
+}

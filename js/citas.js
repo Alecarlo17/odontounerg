@@ -123,10 +123,17 @@ function renderAppointmentCard(appointment, currentUserId) {
 
   let actions = '';
   if (appointment.status === 'proposed') {
-    actions = `
-      <button class="btn btn-success btn-sm" onclick="handleConfirmAppointment('${appointment.id}')">Confirmar</button>
-      <button class="btn btn-danger btn-sm" onclick="handleCancelAppointment('${appointment.id}')">Cancelar</button>
-    `;
+    if (appointment.proposed_by === currentUserId) {
+      actions = `
+        <span class="badge badge-warning" style="margin-right:0.5rem;">Esperando respuesta</span>
+        <button class="btn btn-danger btn-sm" onclick="handleCancelAppointment('${appointment.id}')">Cancelar</button>
+      `;
+    } else {
+      actions = `
+        <button class="btn btn-success btn-sm" onclick="handleConfirmAppointment('${appointment.id}')">Confirmar</button>
+        <button class="btn btn-danger btn-sm" onclick="handleCancelAppointment('${appointment.id}')">Rechazar</button>
+      `;
+    }
   } else if (appointment.status === 'confirmed') {
     actions = `
       ${isStudent ? `<button class="btn btn-primary btn-sm" onclick="handleCompleteAppointment('${appointment.id}')">Finalizar</button>` : ''}

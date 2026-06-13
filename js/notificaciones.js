@@ -1,7 +1,9 @@
 /* =============================================
    NOTIFICACIONES.JS
-   Sistema de notificaciones locales
+   Sistema de notificaciones con Supabase Realtime
    ============================================= */
+
+let _notifChannel = null;
 
 /**
  * Cargar notificaciones del usuario actual
@@ -19,9 +21,10 @@ async function loadNotifications(userId) {
 /**
  * Contar notificaciones no leídas
  */
-async function countUnreadNotifications(userId) {
+async function countUnreadNotifications(userId, categoria = null) {
   try {
-    const res = await fetch(`/api/notifications/${userId}/count`);
+    const url = categoria ? `/api/notifications/${userId}/count?categoria=${categoria}` : `/api/notifications/${userId}/count`;
+    const res = await fetch(url);
     const json = await res.json();
     return json.count || 0;
   } catch(e) {
@@ -41,14 +44,15 @@ async function markNotificationRead(notificationId) {
 /**
  * Marcar todas como leídas
  */
-async function markAllNotificationsRead(userId) {
+async function markAllNotificationsRead(userId, categoria = null) {
   try {
-    await fetch(`/api/notifications/${userId}/read-all`, { method: 'PUT' });
+    const url = categoria ? `/api/notifications/${userId}/read-all?categoria=${categoria}` : `/api/notifications/${userId}/read-all`;
+    await fetch(url, { method: 'PUT' });
   } catch(e) {}
 }
 
 /**
- * Crear una notificación
+ * Crear una notificación (desde frontend)
  */
 async function createNotification(userId, tipo, titulo, mensaje, referenciaId = null) {
   try {
@@ -74,27 +78,32 @@ function renderNotificationsPanel(notifications) {
     `;
   }
 
-  const icons = {
-    solicitud: '<i data-lucide="mail" style="width:20px;height:20px;"></i>',
+  const iconMap = {
+    solicitud: '<i data-lucide="mail" style="width:18px;height:18px;"></i>',
     aceptada: '✅',
     rechazada: '❌',
-    mensaje: '<i data-lucide="message-circle" style="width:20px;height:20px;"></i>',
-    cita: '<i data-lucide="calendar" style="width:20px;height:20px;"></i>',
+    mensaje: '<i data-lucide="message-circle" style="width:18px;height:18px;"></i>',
+    cita: '<i data-lucide="calendar" style="width:18px;height:18px;"></i>',
+    alta_medica: '🏥',
+    sistema: '<i data-lucide="info" style="width:18px;height:18px;"></i>',
     recordatorio: '⏰',
     calificacion: '⭐',
-    sistema: '<i data-lucide="info" style="width:20px;height:20px;"></i>'
+    request_new: '<i data-lucide="mail" style="width:18px;height:18px;"></i>',
+    request_accepted: '✅',
+    request_rejected: '❌',
+    request_discharged: '🏥'
   };
 
   return notifications.map(n => `
-    <div class="notification-item ${n.leida ? '' : 'unread'}" 
-         onclick="handleNotificationClick('${n.id}')" 
-         style="padding: 0.85rem 1.25rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: var(--transition); ${n.leida ? '' : 'background: var(--primary-50);'}">
-      <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-        <span style="font-size: 1.25rem; display:flex;">${icons[n.tipo] || '<i data-lucide="bell" style="width:20px;height:20px;"></i>'}</span>
-        <div style="flex: 1; min-width: 0;">
-          <p style="font-weight: 600; font-size: 0.875rem; margin-bottom: 0.15rem;">${escapeHTML(n.titulo)}</p>
-          <p style="font-size: 0.8rem; color: var(--text-secondary);">${escapeHTML(n.mensaje)}</p>
-          <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">${timeAgo(n.created_at)}</p>
+    <div class="notification-item ${n.leida ? '' : 'unread'}"
+         onclick="handleNotificationClick('${n.id}')"
+         style="padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--transition);${n.leida ? '' : 'background:var(--primary-50);'}">
+      <div style="display:flex;gap:0.75rem;align-items:flex-start;">
+        <span style="font-size:1.1rem;display:flex;align-items:center;flex-shrink:0;margin-top:2px;">${iconMap[n.tipo] || '<i data-lucide="bell" style="width:18px;height:18px;"></i>'}</span>
+        <div style="flex:1;min-width:0;">
+          <p style="font-weight:600;font-size:0.875rem;margin-bottom:0.15rem;">${escapeHTML(n.titulo)}</p>
+          <p style="font-size:0.8rem;color:var(--text-secondary);">${escapeHTML(n.mensaje)}</p>
+          <p style="font-size:0.7rem;color:var(--text-muted);margin-top:0.25rem;">${timeAgo(n.created_at)}</p>
         </div>
         ${n.leida ? '' : '<span style="width:8px;height:8px;background:var(--primary);border-radius:50%;flex-shrink:0;margin-top:6px;"></span>'}
       </div>
@@ -103,23 +112,43 @@ function renderNotificationsPanel(notifications) {
 }
 
 /**
- * Inicializar listener de notificaciones (Polling)
+ * Suscribirse a notificaciones con Supabase Realtime
+ * Reemplaza el antiguo setInterval de 5s → 0 queries en idle
  */
 function subscribeToNotifications(userId, callback) {
-  // Revisamos si hay notificaciones nuevas cada 5 segundos.
-  let lastCheckedTime = new Date().toISOString();
+  // Cancelar suscripción anterior si existe
+  if (_notifChannel) {
+    try { supabase.removeChannel(_notifChannel); } catch(_) {}
+    _notifChannel = null;
+  }
 
-  setInterval(async () => {
-    try {
-      const res = await fetch(`/api/notifications/${userId}`);
-      const json = await res.json();
-      const notifs = json.data || [];
-      
-      const nuevas = notifs.filter(n => n.created_at > lastCheckedTime);
-      if (nuevas.length > 0) {
-        lastCheckedTime = nuevas[0].created_at; // actualizar último check
-        nuevas.forEach(n => callback(n));
+  if (!userId) return;
+
+  _notifChannel = supabase
+    .channel(`notifications-${userId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'notifications',
+      filter: `user_id=eq.${userId}`
+    }, (payload) => {
+      if (payload.new) callback(payload.new);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Realtime] Notificaciones conectadas');
       }
-    } catch(e) {}
-  }, 5000);
+    });
+
+  return _notifChannel;
+}
+
+/**
+ * Cancelar suscripción a notificaciones
+ */
+function unsubscribeFromNotifications() {
+  if (_notifChannel) {
+    try { supabase.removeChannel(_notifChannel); } catch(_) {}
+    _notifChannel = null;
+  }
 }

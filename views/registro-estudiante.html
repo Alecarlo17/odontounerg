@@ -13,9 +13,10 @@
 
   <div class="auth-wrapper">
     <!-- Panel izquierdo: Branding -->
-    <div class="auth-brand">
+    <div class="auth-brand" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('/assets/1.jpg') center/cover;">
       <div class="auth-brand-logo">
-        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
+        <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+        <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
       </div>
       <h1 class="auth-brand-title">Registro de Estudiante</h1>
       <p class="auth-brand-subtitle">
@@ -102,6 +103,19 @@
             <input type="number" id="reg-age" class="form-input" placeholder="Ej: 22" min="15" max="100">
           </div>
 
+          <!-- Género -->
+          <div class="form-group">
+            <label class="form-label" for="reg-gender">Género *</label>
+            <select id="reg-gender" class="form-select" required>
+              <option value="">Seleccione su género</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Otro">Otro</option>
+              <option value="Prefiero no indicarlo">Prefiero no indicarlo</option>
+            </select>
+            <span class="form-error" id="reg-gender-error"></span>
+          </div>
+
           <!-- Casos de Interés -->
           <div class="form-group">
             <label class="form-label">Casos de Interés (Seleccione múltiples)</label>
@@ -161,6 +175,7 @@
             <div class="input-with-icon">
               <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
               <input type="password" id="reg-confirm-password" class="form-input" placeholder="Repita la contraseña" required>
+              <button type="button" class="password-toggle" onclick="togglePassword('reg-confirm-password', this)"><i data-lucide="eye" style="width:18px;height:18px;"></i></button>
             </div>
             <span class="form-error" id="reg-confirm-password-error"></span>
           </div>
@@ -178,8 +193,8 @@
     </div>
   </div>
 
-  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/libs/lucide.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
@@ -270,6 +285,14 @@
       }
     });
 
+    document.getElementById('reg-gender').addEventListener('change', function() {
+      if (!this.value) {
+        setFieldError('reg-gender', 'Debe seleccionar su género.');
+      } else {
+        setFieldError('reg-gender', '');
+      }
+    });
+
     document.getElementById('reg-password').addEventListener('input', function() {
       if (this.value.length > 0 && this.value.length < 8) {
         setFieldError('reg-password', 'La contraseña debe tener mínimo 8 caracteres.');
@@ -326,6 +349,12 @@
         hasError = true;
       }
 
+      const gender = document.getElementById('reg-gender').value;
+      if (!gender) {
+        setFieldError('reg-gender', 'Debe seleccionar su género.');
+        hasError = true;
+      }
+
       const password = document.getElementById('reg-password').value;
       if (password.length < 8) {
         setFieldError('reg-password', 'La contraseña debe tener mínimo 8 caracteres.');
@@ -354,6 +383,7 @@
         academicYear: year,
         phone: document.getElementById('reg-phone').value.trim(),
         age: document.getElementById('reg-age').value.trim(),
+        gender: document.getElementById('reg-gender').value,
         password: password,
         confirmPassword: confirmPassword,
         treatments: selectedTreatments
@@ -372,3 +402,5 @@
 
 </body>
 </html>
+
+

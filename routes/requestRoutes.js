@@ -1,6 +1,5 @@
 /* =============================================
    ROUTES: REQUEST ROUTES
-   Rutas de solicitudes
    ============================================= */
 
 const express = require('express');
@@ -27,5 +26,8 @@ router.put('/:id/reject', requestController.rejectRequest);
 
 // Dar de alta (Finalizar tratamiento)
 router.put('/:id/discharge', requestController.dischargePatient);
+
+// Marcar paciente como abandonado
+router.put('/:id/abandon', requestController.abandonPatient);
 
 module.exports = router;

@@ -26,7 +26,8 @@
   left: 0;
   bottom: 0;
   z-index: 100;
-  transition: var(--transition-slow);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
   overflow-y: auto;
   border-right: 1px solid rgba(255,255,255,0.06);
 }
@@ -100,7 +101,7 @@
   font-size: 0.875rem;
   font-weight: 500;
   color: rgba(255,255,255,0.6);
-  transition: var(--transition);
+  transition: background-color 0.2s ease, color 0.2s ease;
   cursor: pointer;
   position: relative;
   margin-bottom: 2px;
@@ -685,10 +686,9 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(15, 23, 42, 0.6);
   z-index: 99;
-  backdrop-filter: blur(2px);
-  animation: fadeIn 0.2s ease;
+  animation: fadeIn 0.3s ease;
 }
 
 #sidebar-overlay.active {
@@ -816,54 +816,55 @@
 /* =============================================
    DARK MODE - Dashboard
    ============================================= */
-[data-theme="dark"] .navbar {
+body.dark .navbar {
   background: var(--bg-card);
   border-color: var(--border);
 }
 
-[data-theme="dark"] .stat-card,
-[data-theme="dark"] .card,
-[data-theme="dark"] .patient-card {
+body.dark .stat-card,
+body.dark .card,
+body.dark .patient-card {
   background: var(--bg-card);
   border-color: var(--border);
 }
 
-[data-theme="dark"] .card-footer {
+body.dark .card-footer {
   background: rgba(255,255,255,0.03);
 }
 
-[data-theme="dark"] .data-table th {
+body.dark .data-table th {
   background: rgba(255,255,255,0.05);
   border-color: var(--border);
 }
 
-[data-theme="dark"] .data-table td {
+body.dark .data-table td {
   border-color: var(--border);
 }
 
-[data-theme="dark"] .data-table tbody tr:hover {
+body.dark .data-table tbody tr:hover {
   background: rgba(255,255,255,0.03);
 }
 
-[data-theme="dark"] .filter-select {
+body.dark .filter-select {
   background-color: var(--bg-card);
   border-color: var(--border);
   color: var(--text-primary);
 }
 
-[data-theme="dark"] .stat-icon.cyan {
+body.dark .stat-icon.cyan {
   background: rgba(6, 182, 212, 0.15);
 }
 
-[data-theme="dark"] .notification-dot {
+body.dark .notification-dot {
   border-color: var(--bg-card);
 }
 
-[data-theme="dark"] .sidebar {
+body.dark .sidebar {
   border-right-color: rgba(255,255,255,0.04);
 }
 
-[data-theme="dark"] #sidebar-overlay {
+body.dark #sidebar-overlay {
   background: rgba(0, 0, 0, 0.7);
 }
+
 

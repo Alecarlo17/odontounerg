@@ -1,9 +1,9 @@
 /* =============================================
-   CHAT.JS - Sistema de Chat (MVC / Offline)
+   CHAT.JS - Sistema de Chat con Supabase Realtime
    ============================================= */
 
 let currentConversationId = null;
-let chatPollingInterval = null;
+let _chatChannel = null;
 
 /**
  * Obtener conversaciones del usuario
@@ -13,7 +13,7 @@ async function getConversations(userId) {
     const res = await fetch(`/api/chat/conversations/${userId}`);
     const json = await res.json();
     const conversations = json.data || [];
-    
+
     return conversations.map(c => {
       const isStudent = c.student_id === userId;
       const otherUser = isStudent ? c.patient : c.student;
@@ -21,9 +21,9 @@ async function getConversations(userId) {
         conversationId: c.id,
         requestId: c.id,
         otherUser: {
-          id: otherUser.id,
-          full_name: otherUser.full_name,
-          avatar_url: otherUser.avatar_url,
+          id: otherUser?.id,
+          full_name: otherUser?.full_name || 'Usuario',
+          avatar_url: otherUser?.avatar_url,
           disponibilidad: 'disponible'
         },
         lastMessage: { content: '...' },
@@ -53,7 +53,6 @@ async function getMessages(conversationId) {
  */
 async function sendMessage(conversationId, senderId, content) {
   if (!content || !content.trim()) return false;
-
   try {
     const res = await fetch('/api/chat/messages', {
       method: 'POST',
@@ -70,6 +69,25 @@ async function sendMessage(conversationId, senderId, content) {
 }
 
 /**
+ * Enviar imagen en chat
+ */
+async function sendChatImage(file, conversationId, senderId) {
+  try {
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('conversationId', conversationId);
+    formData.append('senderId', senderId);
+
+    const res = await fetch('/api/chat/messages/image', { method: 'POST', body: formData });
+    const json = await res.json();
+    return json.success;
+  } catch(e) {
+    showToast('Error al enviar imagen', 'error');
+    return false;
+  }
+}
+
+/**
  * Marcar mensajes como leídos
  */
 async function markMessagesAsRead(conversationId, userId) {
@@ -79,31 +97,40 @@ async function markMessagesAsRead(conversationId, userId) {
 }
 
 /**
- * Suscribirse a mensajes en tiempo real (Polling local)
+ * Suscribirse a mensajes con Supabase Realtime
+ * Reemplaza el antiguo setInterval de 3s → 0 queries en idle
  */
 function subscribeToMessages(conversationId, callback) {
-  unsubscribeFromMessages();
-  let lastChecked = new Date().toISOString();
+  unsubscribeFromMessages(); // Siempre cancelar anterior primero
 
-  chatPollingInterval = setInterval(async () => {
-    try {
-      const msgs = await getMessages(conversationId);
-      const nuevas = msgs.filter(m => m.created_at > lastChecked);
-      if (nuevas.length > 0) {
-        lastChecked = nuevas[nuevas.length - 1].created_at;
-        nuevas.forEach(m => callback(m));
+  if (!conversationId) return;
+
+  _chatChannel = supabase
+    .channel(`chat-${conversationId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `conversation_id=eq.${conversationId}`
+    }, (payload) => {
+      if (payload.new) callback(payload.new);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log(`[Realtime] Chat ${conversationId} conectado`);
       }
-    } catch(e) {}
-  }, 3000); // Polling cada 3 segundos
+    });
+
+  return _chatChannel;
 }
 
 /**
- * Cancelar suscripción al chat
+ * Cancelar suscripción al chat activo
  */
 function unsubscribeFromMessages() {
-  if (chatPollingInterval) {
-    clearInterval(chatPollingInterval);
-    chatPollingInterval = null;
+  if (_chatChannel) {
+    try { supabase.removeChannel(_chatChannel); } catch(_) {}
+    _chatChannel = null;
   }
 }
 
@@ -117,9 +144,9 @@ function renderMessage(msg, currentUserId) {
   let contentHTML;
   if (msg.content && msg.content.startsWith('📷 Imagen: ')) {
     const url = msg.content.replace('📷 Imagen: ', '');
-    contentHTML = `<div class="message-image"><a href="#" target="_blank"><img src="${url}" alt="Imagen" loading="lazy"></a></div>`;
+    contentHTML = `<div class="message-image"><a href="${url}" target="_blank"><img src="${url}" alt="Imagen" loading="lazy" style="max-width:220px;border-radius:8px;"></a></div>`;
   } else {
-    contentHTML = `<div class="message-bubble">${escapeHTML(msg.content)}</div>`;
+    contentHTML = `<div class="message-bubble">${escapeHTML(msg.content || '')}</div>`;
   }
 
   return `
@@ -135,7 +162,5 @@ function renderMessage(msg, currentUserId) {
  */
 function scrollToBottom() {
   const container = document.getElementById('chat-messages');
-  if (container) {
-    container.scrollTop = container.scrollHeight;
-  }
+  if (container) container.scrollTop = container.scrollHeight;
 }

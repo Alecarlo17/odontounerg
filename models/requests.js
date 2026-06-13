@@ -10,9 +10,10 @@ const db = require('../config/database');
  */
 async function createRequest(studentId, patientId, message = '') {
   try {
+    // Anti-duplicado: bloquear si existe solicitud activa en cualquier estado activo
     const { data: existing, error: existError } = await db.supabase
       .from('requests')
-      .select('id')
+      .select('id, status')
       .eq('student_id', studentId)
       .eq('patient_id', patientId)
       .in('status', ['pending', 'accepted', 'active'])
@@ -22,14 +23,13 @@ async function createRequest(studentId, patientId, message = '') {
     if (existing) return { success: false, message: 'Ya existe una solicitud activa con este paciente' };
 
     const created_at = new Date().toISOString();
-
     const { error } = await db.supabase
       .from('requests')
       .insert({
-        student_id: studentId, 
-        patient_id: patientId, 
-        status: 'pending', 
-        message: message || null, 
+        student_id: studentId,
+        patient_id: patientId,
+        status: 'pending',
+        message: message || null,
         created_at
       });
 
@@ -55,13 +55,10 @@ async function getStudentRequests(studentId, status = null) {
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
-    if (status) {
-      query = query.eq('status', status);
-    }
+    if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
     if (error) throw error;
-    
     return data || [];
   } catch (e) {
     console.error('Error en getStudentRequests:', e);
@@ -83,13 +80,10 @@ async function getPatientRequests(patientId, status = null) {
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false });
 
-    if (status) {
-      query = query.eq('status', status);
-    }
+    if (status) query = query.eq('status', status);
 
     const { data, error } = await query;
     if (error) throw error;
-    
     return data || [];
   } catch (e) {
     console.error('Error en getPatientRequests:', e);
@@ -111,6 +105,57 @@ async function updateRequestStatus(requestId, newStatus) {
     return true;
   } catch(e) {
     console.error('Error en updateRequestStatus:', e);
+    return false;
+  }
+}
+
+/**
+ * Transicionar solicitud a active (cuando se registra el primer tratamiento)
+ */
+async function transitionToActive(studentId, patientId) {
+  try {
+    const { data: requestRow } = await db.supabase
+      .from('requests')
+      .select('id')
+      .eq('student_id', studentId)
+      .eq('patient_id', patientId)
+      .eq('status', 'accepted')
+      .maybeSingle();
+      
+    if (requestRow) {
+      const { error } = await db.supabase
+        .from('requests')
+        .update({ status: 'active' })
+        .eq('id', requestRow.id);
+      
+      if (error) throw error;
+    }
+    
+    return true;
+  } catch(e) {
+    console.error('Error en transitionToInTreatment:', e);
+    return false;
+  }
+}
+
+/**
+ * Marcar solicitud como abandonada
+ */
+async function markAbandoned(requestId, reason = '') {
+  try {
+    const { error } = await db.supabase
+      .from('requests')
+      .update({
+        status: 'abandoned',
+        abandoned_at: new Date().toISOString(),
+        abandon_reason: reason
+      })
+      .eq('id', requestId);
+
+    if (error) throw error;
+    return true;
+  } catch(e) {
+    console.error('Error en markAbandoned:', e);
     return false;
   }
 }
@@ -138,7 +183,8 @@ async function getAllRequests() {
 }
 
 /**
- * Obtener cantidad de pacientes activos de un estudiante
+ * Obtener cantidad * Contar pacientes activos de un estudiante
+ * (accepted + active)
  */
 async function getActivePatientsCount(studentId) {
   try {
@@ -152,7 +198,7 @@ async function getActivePatientsCount(studentId) {
     return count || 0;
   } catch (e) {
     console.error('Error en getActivePatientsCount:', e);
-    return 0; // Prevent creation if error? Better to return 0 to not block completely, or maybe block. Let's return 0.
+    return 0;
   }
 }
 
@@ -161,6 +207,8 @@ module.exports = {
   getStudentRequests,
   getPatientRequests,
   updateRequestStatus,
+  transitionToActive,
+  markAbandoned,
   getAllRequests,
   getActivePatientsCount
 };

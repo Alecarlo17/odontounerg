@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   subscribeToNotifications(currentUser.user.id, (notif) => {
     showToast(notif.titulo, 'info');
     updateNotificationBadge();
+    if(typeof loadStats === 'function') loadStats();
+    if(typeof loadNotificationsList === 'function') loadNotificationsList();
   });
 });
 
@@ -32,7 +34,14 @@ function setupSidebar() {
 async function loadDashboardData() {
   showLoading(true);
   try {
-    await Promise.all([loadStats(), loadPendingRequestsPreview(), loadUpcomingAppointments(), updateNotificationBadge()]);
+    await Promise.all([
+      loadStats(),
+      loadCasoActivo(),
+      loadUpcomingAppointments(),
+      updateNotificationBadge()
+    ]);
+    // Verificar si hay alta médica sin respuesta de reingreso
+    checkPendingReingreso();
   } catch (error) {
     console.error('Error loading dashboard data:', error);
     showToast('Error de conexión con la base de datos', 'error');
@@ -57,31 +66,137 @@ async function loadStats() {
     <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests}</div></div></div>
     <div class="stat-card"><div class="stat-icon green"><i data-lucide="graduation-cap"></i></div><div class="stat-info"><div class="stat-label">Estudiantes Asignados</div><div class="stat-value">${stats.acceptedRequests}</div></div></div>
     <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${stats.activeAppointments}</div></div></div>
+    <div class="stat-card"><div class="stat-icon cyan"><i data-lucide="clipboard-check"></i></div><div class="stat-info"><div class="stat-label">Tratamientos Recibidos</div><div class="stat-value">${stats.completedTreatments || 0}</div></div></div>
   `;
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-async function loadPendingRequestsPreview() {
-  const requests = await getPatientRequests(currentUser.user.id, 'pending');
-  const container = document.getElementById('pending-requests-preview');
-  if (requests.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="mail"></i></div><p class="empty-state-text">Sin solicitudes pendientes</p></div>';
-    return;
-  }
+/**
+ * Cargar estado del caso actual (Timeline)
+ */
+async function loadCasoActivo() {
+  const container = document.getElementById('caso-activo-info');
+  if (!container) return;
 
-  container.innerHTML = requests.slice(0, 3).map(req => {
-    const name = req.student?.full_name || 'Estudiante';
-    return `
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);">
-        <span class="avatar avatar-sm avatar-placeholder">${getInitials(name)}</span>
-        <div style="flex:1"><p style="font-weight:600;font-size:0.875rem">${escapeHTML(name)}</p><p style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(req.created_at)}</p></div>
-        <div style="display:flex;gap:0.35rem">
-          <button class="btn btn-success btn-sm" onclick="handleAcceptRequest('${req.id}')">Aceptar</button>
-          <button class="btn btn-danger btn-sm" onclick="handleRejectRequest('${req.id}')">Rechazar</button>
+  try {
+    const res = await fetch(`/api/dashboard/case-status/${currentUser.user.id}`);
+    const json = await res.json();
+    const caso = json.data;
+
+    if (!caso) {
+      // Sin caso activo: mostrar solicitudes pendientes
+      const requests = await getPatientRequests(currentUser.user.id, 'pending');
+      if (requests.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="heart-pulse"></i></div><p class="empty-state-text">Sin caso activo. Complete su diagnóstico para aparecer en la búsqueda.</p></div>';
+      } else {
+        container.innerHTML = `
+          <p style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem;">
+            📬 Solicitudes recibidas (${requests.length})
+          </p>
+          ${requests.slice(0,3).map(req => `
+            <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);">
+              <span class="avatar avatar-sm avatar-placeholder">${getInitials(req.student?.full_name || 'E')}</span>
+              <div style="flex:1"><p style="font-weight:600;font-size:0.875rem">${escapeHTML(req.student?.full_name || 'Estudiante')}</p>
+              <p style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(req.created_at)}</p></div>
+              <div style="display:flex;gap:0.35rem">
+                <button class="btn btn-success btn-sm" onclick="handleAcceptRequest('${req.id}')">Aceptar</button>
+                <button class="btn btn-danger btn-sm" onclick="handleRejectRequest('${req.id}')">Rechazar</button>
+              </div>
+            </div>
+          `).join('')}
+        `;
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+
+    // Construir timeline del caso
+    const steps = [
+      {
+        done: true,
+        icon: '✅',
+        label: 'Solicitud aceptada',
+        detail: caso.request.created_at ? new Date(caso.request.created_at).toLocaleDateString('es-VE') : ''
+      },
+      {
+        done: !!caso.firstAppointment,
+        icon: caso.firstAppointment ? '✅' : '◎',
+        label: 'Primera cita',
+        detail: caso.firstAppointment ? new Date(caso.firstAppointment.date).toLocaleDateString('es-VE') : 'Pendiente'
+      },
+      {
+        done: caso.hasTreatments,
+        icon: caso.hasTreatments ? '✅' : '◎',
+        label: 'Tratamiento iniciado',
+        detail: caso.hasTreatments ? `${caso.treatments.length} tratamiento(s)` : 'Pendiente'
+      },
+      {
+        done: caso.totalSessions > 0,
+        icon: caso.totalSessions > 0 ? '✅' : '◎',
+        label: 'Sesiones clínicas',
+        detail: caso.totalSessions > 0 ? `${caso.totalSessions} sesión(es) realizada(s)` : 'Sin sesiones'
+      },
+      {
+        done: caso.request.status === 'completed',
+        icon: caso.request.status === 'completed' ? '🏥' : '◎',
+        label: 'Alta médica',
+        detail: caso.request.discharged_at ? new Date(caso.request.discharged_at).toLocaleDateString('es-VE') : 'Pendiente'
+      }
+    ];
+
+    const studentName = caso.student?.full_name || 'Tu estudiante';
+    const statusBadgeColor = {
+      accepted: '#3b82f6',
+      active: '#10b981',
+      completed: '#6b7280'
+    }[caso.request.status] || '#6b7280';
+
+    container.innerHTML = `
+      <div style="margin-bottom:1rem;padding:0.75rem;background:var(--gray-50);border-radius:var(--radius);display:flex;align-items:center;gap:0.75rem;">
+        <span class="avatar avatar-sm avatar-placeholder">${getInitials(studentName)}</span>
+        <div>
+          <p style="font-weight:700;font-size:0.95rem;">${escapeHTML(studentName)}</p>
+          <span style="display:inline-block;padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:600;background:${statusBadgeColor};color:white;">${{ accepted: 'Asignado', active: 'En Tratamiento', completed: 'Alta Médica' }[caso.request.status] || caso.request.status}</span>
         </div>
       </div>
+      <div style="padding-left:0.5rem;">
+        ${steps.map((step, i) => `
+          <div style="display:flex;gap:0.75rem;align-items:flex-start;margin-bottom:${i < steps.length - 1 ? '0' : '0'};">
+            <div style="display:flex;flex-direction:column;align-items:center;">
+              <span style="font-size:1.1rem;line-height:1;">${step.icon}</span>
+              ${i < steps.length - 1 ? `<div style="width:2px;height:28px;background:${step.done ? 'var(--success)' : 'var(--border)'};margin:4px 0;"></div>` : ''}
+            </div>
+            <div style="padding-bottom:${i < steps.length - 1 ? '0' : '0'}">
+              <p style="font-weight:600;font-size:0.875rem;color:${step.done ? 'var(--text)' : 'var(--text-muted)'}">${step.label}</p>
+              <p style="font-size:0.75rem;color:var(--text-muted);">${step.detail}</p>
+            </div>
+          </div>
+        `).join('')}
+      </div>
     `;
-  }).join('');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch(e) {
+    console.error('Error cargando caso activo:', e);
+  }
+}
+
+/**
+ * Verificar si hay alta médica pendiente de respuesta
+ */
+async function checkPendingReingreso() {
+  const key = `reingreso_respondido_${currentUser.user.id}`;
+  if (sessionStorage.getItem(key)) return;
+
+  try {
+    const res = await fetch(`/api/dashboard/case-status/${currentUser.user.id}`);
+    const json = await res.json();
+    const caso = json.data;
+
+    if (caso && caso.request.status === 'completed') {
+      // Mostrar modal de reingreso automáticamente
+      setTimeout(() => openReingresoModal(caso.request.id), 1500);
+    }
+  } catch(e) {}
 }
 
 async function loadUpcomingAppointments() {
@@ -95,21 +210,47 @@ async function loadUpcomingAppointments() {
   container.innerHTML = upcoming.map(a => renderAppointmentCard(a, currentUser.user.id)).join('');
 }
 
+/**
+ * Actualizar badge de notificaciones
+ */
 async function updateNotificationBadge() {
-  const count = await countUnreadNotifications(currentUser.user.id);
-  const badge = document.getElementById('notif-badge');
-  const dot = document.getElementById('notif-dot');
-  if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); dot.classList.remove('hidden'); }
-  else { badge.classList.add('hidden'); dot.classList.add('hidden'); }
-}
+  if (!currentUser || !currentUser.user) return;
+  const uid = currentUser.user.id;
+  
+  const [reqCount, chatCount, apptCount, genCount] = await Promise.all([
+    countUnreadNotifications(uid, 'solicitudes'),
+    countUnreadNotifications(uid, 'chat'),
+    countUnreadNotifications(uid, 'citas'),
+    countUnreadNotifications(uid, 'generales')
+  ]);
 
-function showSection(sectionName) {
+  const updateBadge = (id, count) => {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    if (count > 0) { badge.textContent = count; badge.classList.remove('hidden'); }
+    else { badge.classList.add('hidden'); }
+  };
+
+  updateBadge('req-badge', reqCount);
+  updateBadge('chat-badge', chatCount);
+  updateBadge('appt-badge', apptCount);
+  updateBadge('notif-badge', genCount);
+
+  const dot = document.getElementById('notif-dot');
+  if (dot) {
+    if (genCount > 0) dot.classList.remove('hidden');
+    else dot.classList.add('hidden');
+  }
+}
+const _loadedSections = new Set();
+
+function showSection(sectionName, forceReload = false) {
   document.querySelectorAll('.page-content > section').forEach(s => s.classList.add('hidden'));
   document.getElementById(`section-${sectionName}`).classList.remove('hidden');
 
-  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-  const links = document.querySelectorAll('.sidebar-link');
-  links.forEach(l => { if (l.textContent.trim().toLowerCase().includes(sectionName === 'inicio' ? 'inicio' : sectionName)) l.classList.add('active'); });
+  if (typeof setActiveSidebarLink === 'function') {
+    setActiveSidebarLink(sectionName);
+  }
 
   const titles = {
     inicio: ['Inicio', 'Panel de control'],
@@ -124,75 +265,37 @@ function showSection(sectionName) {
   const [title, subtitle] = titles[sectionName] || ['', ''];
   document.getElementById('page-title').textContent = title;
   document.getElementById('page-subtitle').textContent = subtitle;
-
-  switch (sectionName) {
-    case 'estudiantes': loadStudentsList(); break;
-    case 'solicitudes': loadPatientRequestsList(); break;
-    case 'citas': loadAppointmentsList(); break;
-    case 'chat': loadChatConversations(); break;
-    case 'historial': loadTreatmentsHistory(); break;
-    case 'perfil': loadProfileData(); break;
-    case 'notificaciones': loadNotificationsList(); break;
+  if (!forceReload && _loadedSections.has(sectionName)) {
+    return; // Ya fue cargado, usar caché visual
   }
-}
 
-async function loadStudentsList() {
-  const students = await getAvailableStudents();
-  allStudents = students;
-
-  // Cargar promedios de todos los estudiantes
-  let averages = {};
-  try {
-    const res = await fetch('/api/ratings/students/averages');
-    const json = await res.json();
-    if (json.success) averages = json.data;
-  } catch(e) { console.error('Error fetching averages', e); }
-
-  const container = document.getElementById('students-grid');
-  if (students.length === 0) {
-    container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon"><i data-lucide="graduation-cap"></i></div><p class="empty-state-title">No hay estudiantes disponibles</p></div>';
-    return;
+  if (sectionName === 'notificaciones') {
+    markAllNotificationsRead(currentUser.user.id, 'generales').then(() => updateNotificationBadge());
+    loadNotificationsList(); 
   }
-  container.innerHTML = students.map(s => {
-    const student = Array.isArray(s.students) ? s.students[0] : (s.students || {});
-    const avgScore = averages[s.id] ? averages[s.id].toFixed(1) : null;
-    return `
-      <div class="patient-card">
-        <div class="patient-card-header">
-          ${s.avatar_url ? `<img src="${s.avatar_url}" class="patient-card-avatar">` : `<span class="avatar avatar-placeholder" style="width:48px;height:48px">${getInitials(s.full_name)}</span>`}
-          <div>
-            <div class="patient-card-name">${escapeHTML(s.full_name)} ${avgScore ? `<span style="font-size: 0.9rem; color: #f59e0b; margin-left: 0.5rem;">⭐ ${avgScore}</span>` : ''}</div>
-            <div class="patient-card-meta">${student?.section ? 'Sección ' + escapeHTML(student.section) : ''} ${student?.academic_year ? '· ' + escapeHTML(student.academic_year) : ''}</div>
-          </div>
-        </div>
-        <div class="patient-card-body">
-          <p style="font-size:0.85rem;color:var(--text-secondary)"><i data-lucide="building-2" style="width:14px;height:14px;display:inline;"></i> ${escapeHTML(student?.university || 'UNERG')}</p>
-        </div>
-        <div class="patient-card-footer">
-          <button class="btn btn-primary btn-sm" onclick="handleSendRequestToStudent('${s.id}')">Enviar Solicitud</button>
-          <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${s.id}')">Ver Perfil</button>
-        </div>
-      </div>
-    `;
-  }).join('');
+  else if (sectionName === 'solicitudes') {
+    markAllNotificationsRead(currentUser.user.id, 'solicitudes').then(() => updateNotificationBadge());
+    loadPatientRequestsList(); 
+  }
+  else if (sectionName === 'citas') {
+    markAllNotificationsRead(currentUser.user.id, 'citas').then(() => updateNotificationBadge());
+    loadAppointmentsList(); 
+  }
+  else if (sectionName === 'chat') {
+    markAllNotificationsRead(currentUser.user.id, 'chat').then(() => updateNotificationBadge());
+    loadChatConversations(); 
+  }
+  else if (sectionName === 'inicio') { loadDashboardData(); }
+  else if (sectionName === 'estudiantes') { loadAvailableStudents(); }
+  else if (sectionName === 'tratamientos') { loadTreatmentsHistory(); }
+  else if (sectionName === 'historial') { loadTreatmentsHistory(); }
+  else if (sectionName === 'perfil') { loadProfileData(); }
+  else if (sectionName === 'diagnostico') { loadDiagnosisForm(); }
+  
+  _loadedSections.add(sectionName);
 }
 
-function filterStudentsList() {
-  const term = document.getElementById('search-students').value.toLowerCase();
-  // Simple client-side filter
-  document.querySelectorAll('#students-grid .patient-card').forEach(card => {
-    const name = card.querySelector('.patient-card-name')?.textContent.toLowerCase() || '';
-    card.style.display = name.includes(term) ? '' : 'none';
-  });
-}
-
-async function handleSendRequestToStudent(studentId) {
-  const ok = await confirmAction('Enviar Solicitud', '¿Desea enviar una solicitud a este estudiante?');
-  if (!ok) return;
-  // En este caso el paciente envía al estudiante, agregamos prefijo
-  const success = await sendRequest(studentId, currentUser.user.id, '[FromPatient]');
-  if (success) loadStudentsList();
-}
+// Funciones de estudiantes eliminadas: el paciente ya no puede buscar estudiantes ni enviar solicitudes.
 
 async function loadPatientRequestsList(status = null) {
   const requests = await getPatientRequests(currentUser.user.id, status);
@@ -251,14 +354,14 @@ function showReqTab(status) {
 
 async function handleAcceptRequest(id) {
   const success = await acceptRequest(id);
-  if (success) { loadPendingRequestsPreview(); loadPatientRequestsList(); loadStats(); }
+  if (success) { loadCasoActivo(); loadPatientRequestsList(); loadStats(); loadDashboardData(); }
 }
 
 async function handleRejectRequest(id) {
   const ok = await confirmAction('Rechazar Solicitud', '¿Está seguro de rechazar esta solicitud?');
   if (ok) {
     const success = await rejectRequest(id);
-    if (success) { loadPendingRequestsPreview(); loadPatientRequestsList(); loadStats(); }
+    if (success) { loadCasoActivo(); loadPatientRequestsList(); loadStats(); loadDashboardData(); }
   }
 }
 
@@ -272,12 +375,12 @@ async function loadAppointmentsList() {
   container.innerHTML = appointments.map(a => renderAppointmentCard(a, currentUser.user.id)).join('');
 }
 
-async function handleConfirmAppointment(id) { await confirmAppointment(id); loadAppointmentsList(); }
+async function handleConfirmAppointment(id) { await confirmAppointment(id); loadAppointmentsList(); loadDashboardData(); }
 async function handleCancelAppointment(id) {
   const ok = await confirmAction('Cancelar Cita', '¿Está seguro?');
-  if (ok) { await cancelAppointment(id); loadAppointmentsList(); }
+  if (ok) { await cancelAppointment(id); loadAppointmentsList(); loadDashboardData(); }
 }
-async function handleCompleteAppointment(id) { await completeAppointment(id); loadAppointmentsList(); }
+async function handleCompleteAppointment(id) { await completeAppointment(id); loadAppointmentsList(); loadDashboardData(); }
 
 // Chat - misma lógica que estudiante
 async function loadChatConversations() {
@@ -304,7 +407,18 @@ async function loadChatConversations() {
 
 async function openChat(conversationId, otherUserId, otherName) {
   currentConversationId = conversationId;
+
   await markMessagesAsRead(conversationId, currentUser.user.id);
+  
+  try {
+    await supabase
+      .from('notifications')
+      .update({ leida: true })
+      .eq('user_id', currentUser.user.id)
+      .eq('tipo', 'chat')
+      .eq('referencia_id', conversationId);
+    if(typeof loadNotificationsList === 'function') loadNotificationsList();
+  } catch(e) {}
   const messages = await getMessages(conversationId);
   document.getElementById('chat-main-panel').innerHTML = `
     <div class="chat-main-header">
@@ -415,7 +529,11 @@ window.handleNotificationClick = async (id) => {
   updateNotificationBadge();
 };
 
-async function handleMarkAllRead() { await markAllNotificationsRead(currentUser.user.id); loadNotificationsList(); updateNotificationBadge(); }
+async function handleMarkAllRead() { 
+  await markAllNotificationsRead(currentUser.user.id); 
+  loadNotificationsList(); 
+  updateNotificationBadge(); 
+}
 
 function openCalificarModal(studentId) {
   document.getElementById('calificar-student-id').value = studentId;
@@ -432,7 +550,8 @@ async function handleCalificar(event) {
   showLoading(true);
 
   try {
-    const res = await fetch('/api/dashboard/ratings', {
+    // Ruta correcta: /api/ratings/student
+    const res = await fetch('/api/ratings/student', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -446,12 +565,15 @@ async function handleCalificar(event) {
     showLoading(false);
     if (!json.success) throw new Error(json.message);
 
-    showToast('Calificación enviada exitosamente', 'success');
-    closeModal('modal-calificar');
-    document.getElementById('calificar-comentario').value = '';
-    
-    // Open re-entry question modal
-    document.getElementById('modal-reingreso-pregunta').classList.add('active');
+    showToast('Calificación enviada exitosamente ⭐', 'success');
+    closeModal('modal-calificar-estudiante');
+    document.getElementById('rating-comment').value = '';
+    // Resetear estrellas
+    document.querySelectorAll('.star-btn').forEach(s => {
+      s.style.filter = 'grayscale(1)';
+      s.style.color = '';
+      s.style.transform = 'scale(1)';
+    });
 
   } catch (e) {
     showLoading(false);
@@ -614,3 +736,145 @@ async function viewStudentProfile(studentId) {
 function closeModal(modalId) {
   document.getElementById(modalId).classList.remove('active');
 }
+
+/* ===== DIAGNÓSTICO ===== */
+async function loadDiagnosisForm() {
+  const res = await fetch('/api/diagnosis/' + currentUser.user.id).then(r => r.json());
+  const d = res.data;
+  const container = document.getElementById('diagnosis-container');
+  if (!container) return;
+
+  if (d) {
+    container.innerHTML = `
+      <div style="background:var(--bg-card);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+          <h3>Ficha Clínica — Caso #${d.caso_numero || 1}</h3>
+          <span class="badge badge-primary">${(d.prioridad || 'media').toUpperCase()}</span>
+        </div>
+        <div style="display:grid;gap:12px;font-size:0.9rem;color:var(--text-primary)">
+          <div><strong>Problema:</strong> ${escapeHTML(d.problema_principal || '-')}</div>
+          <div><strong>Especialidad sugerida:</strong> ${escapeHTML(d.especialidad_requerida||'Pendiente de evaluación')}</div>
+          <div><strong>Síntomas:</strong> ${escapeHTML(d.sintomas||'Pendiente de evaluación clínica')}</div>
+          <div><strong>Nivel de dolor:</strong> ${d.nivel_dolor !== null ? d.nivel_dolor + '/10' : 'No especificado'}</div>
+          <div><strong>Tiempo de evolución:</strong> ${escapeHTML(d.tiempo_evolucion||'-')}</div>
+          ${d.observaciones ? `<div><strong>Observaciones:</strong> ${escapeHTML(d.observaciones)}</div>` : ''}
+          <div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.5rem">Registrado: ${new Date(d.created_at).toLocaleDateString()}</div>
+        </div>
+      </div>`;
+  } else {
+    showDiagnosisCreateForm();
+  }
+}
+
+function showDiagnosisCreateForm() {
+  const container = document.getElementById('diagnosis-container');
+  if (!container) return;
+  container.innerHTML = `
+    <form onsubmit="handleCreateDiagnosis(event)" style="background:var(--card-bg,#fff);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
+      <h3 style="margin-bottom:1.25rem">📋 Diagnóstico Inicial</h3>
+      <div class="form-group"><label class="form-label">Problema principal *</label>
+        <input type="text" class="form-input" id="diag-problema" placeholder="Ej: Dolor molar, caries..." required></div>
+      <div class="form-group"><label class="form-label">Motivo de consulta</label>
+        <input type="text" class="form-input" id="diag-motivo" placeholder="¿Por qué busca atención?"></div>
+      <div class="form-group"><label class="form-label">Síntomas</label>
+        <textarea class="form-textarea" id="diag-sintomas" placeholder="Describa sus síntomas..."></textarea></div>
+      <div class="form-group"><label class="form-label">Tiempo de evolución</label>
+        <input type="text" class="form-input" id="diag-tiempo" placeholder="Ej: 2 semanas, 1 mes..."></div>
+      <div class="form-group"><label class="form-label">Especialidad requerida</label>
+        <select class="form-select" id="diag-especialidad">
+          <option value="">Seleccione...</option>
+          <option>Ortodoncia</option><option>Extracción</option><option>Limpieza dental</option>
+          <option>Caries</option><option>Endodoncia</option><option>Prótesis</option>
+          <option>Periodoncia</option><option>Otro</option>
+        </select></div>
+      <div class="form-group"><label class="form-label">Nivel de dolor (1-10): <strong id="pain-val">5</strong></label>
+        <input type="range" min="1" max="10" value="5" id="diag-dolor" style="width:100%" oninput="document.getElementById('pain-val').textContent=this.value"></div>
+      <div class="form-group"><label class="form-label">Observaciones adicionales</label>
+        <textarea class="form-textarea" id="diag-obs" placeholder="Información adicional relevante..."></textarea></div>
+      <button type="submit" class="btn btn-primary btn-block">💾 Guardar Diagnóstico</button>
+    </form>`;
+}
+
+async function handleCreateDiagnosis(event) {
+  event.preventDefault();
+  const res = await fetch('/api/diagnosis/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      patientId: currentUser.user.id,
+      problemaPrincipal: document.getElementById('diag-problema')?.value,
+      motivoConsulta: document.getElementById('diag-motivo')?.value,
+      sintomas: document.getElementById('diag-sintomas')?.value,
+      tiempoEvolucion: document.getElementById('diag-tiempo')?.value,
+      especialidadRequerida: document.getElementById('diag-especialidad')?.value,
+      nivelDolor: document.getElementById('diag-dolor')?.value,
+      observaciones: document.getElementById('diag-obs')?.value
+    })
+  }).then(r => r.json());
+
+  if (res.success) {
+    if (typeof showToast === 'function') showToast('Diagnóstico registrado. Prioridad: ' + (res.prioridad || '').toUpperCase() + '. Ahora apareces en búsqueda de estudiantes.', 'success');
+    else alert('Diagnóstico registrado con éxito.');
+    const banner = document.getElementById('diagnosis-required-banner');
+    if (banner) banner.classList.add('hidden');
+    loadDiagnosisForm();
+  } else {
+    if (typeof showToast === 'function') showToast(res.message || 'Error al guardar diagnóstico', 'error');
+    else alert('Error al guardar diagnóstico');
+  }
+}
+
+/* =============================================
+   ALTA MÉDICA – MODAL REINGRESO / CALIFICACIÓN
+   ============================================= */
+
+/**
+ * Abrir el modal de seguimiento post-alta
+ */
+function openReingresoModal(requestId) {
+  const key = `reingreso_respondido_${currentUser?.user?.id}`;
+  if (sessionStorage.getItem(key)) return; // Ya respondido en esta sesión
+  window._altaRequestId = requestId;
+  document.getElementById('modal-alta-seguimiento').classList.add('active');
+}
+
+/**
+ * Manejar decisión post-alta (reingreso o cierre)
+ * @param {boolean} wantsNewCase
+ */
+async function handleAltaDecision(wantsNewCase) {
+  closeModal('modal-alta-seguimiento');
+  const key = `reingreso_respondido_${currentUser?.user?.id}`;
+  sessionStorage.setItem(key, 'true');
+
+  if (wantsNewCase) {
+    try {
+      await supabase
+        .from('patients')
+        .update({ accepts_requests: true })
+        .eq('id', currentUser.user.id);
+      showToast('Tu perfil ha sido reactivado. ¡Pronto recibirás nuevas solicitudes!', 'success');
+      loadCasoActivo();
+      loadStats();
+    } catch(e) {
+      showToast('Error al reactivar perfil', 'error');
+    }
+  } else {
+    showToast('¡Que te mejores! Gracias por usar OdontoUNERG.', 'success');
+  }
+
+  // Mostrar modal de calificación si aplica
+  if (window._altaRequestId) {
+    setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/requests/patient/${currentUser.user.id}`);
+        const json = await res.json();
+        const completed = (json.data || []).find(r => r.id === window._altaRequestId);
+        if (completed?.student_id) {
+          openCalificarModal(completed.student_id);
+        }
+      } catch(_) {}
+    }, 1200);
+  }
+}
+

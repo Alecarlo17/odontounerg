@@ -12,9 +12,10 @@
 <body>
 
   <div class="auth-wrapper">
-    <div class="auth-brand">
+    <div class="auth-brand" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('/assets/1.jpg') center/cover;">
       <div class="auth-brand-logo">
-        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
+        <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+        <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
       </div>
       <h1 class="auth-brand-title">Registro de Paciente</h1>
       <p class="auth-brand-subtitle">
@@ -77,6 +78,19 @@
             </div>
           </div>
 
+          <!-- Género -->
+          <div class="form-group">
+            <label class="form-label" for="reg-gender">Género *</label>
+            <select id="reg-gender" class="form-select" required>
+              <option value="">Seleccione su género</option>
+              <option value="Masculino">Masculino</option>
+              <option value="Femenino">Femenino</option>
+              <option value="Otro">Otro</option>
+              <option value="Prefiero no indicarlo">Prefiero no indicarlo</option>
+            </select>
+            <span class="form-error" id="reg-gender-error"></span>
+          </div>
+
           <!-- Dirección -->
           <div class="form-group">
             <label class="form-label" for="reg-direccion">Dirección</label>
@@ -135,6 +149,7 @@
             <div class="input-with-icon">
               <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
               <input type="password" id="reg-confirm-password" class="form-input" placeholder="Repita la contraseña" required>
+              <button type="button" class="password-toggle" onclick="togglePassword('reg-confirm-password', this)"><i data-lucide="eye" style="width:18px;height:18px;"></i></button>
             </div>
             <span class="form-error" id="reg-confirm-password-error"></span>
           </div>
@@ -152,8 +167,8 @@
     </div>
   </div>
 
-  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/libs/lucide.js"></script>
+  <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
@@ -274,6 +289,14 @@
       }
     });
 
+    document.getElementById('reg-gender').addEventListener('change', function() {
+      if (!this.value) {
+        setFieldError('reg-gender', 'Debe seleccionar su género.');
+      } else {
+        setFieldError('reg-gender', '');
+      }
+    });
+
     // ============================================
     // ENVÍO DEL FORMULARIO CON VALIDACIÓN COMPLETA
     // ============================================
@@ -323,6 +346,13 @@
         hasError = true;
       }
 
+      // Validar género
+      const gender = document.getElementById('reg-gender').value;
+      if (!gender) {
+        setFieldError('reg-gender', 'Debe seleccionar su género.');
+        hasError = true;
+      }
+
       // Si hay errores, detener el envío y hacer scroll al primer error
       if (hasError) {
         const firstError = document.querySelector('.form-input.error, .form-select.error');
@@ -336,6 +366,7 @@
         cedula: cedula,
         email: email,
         age: document.getElementById('reg-age').value,
+        gender: gender,
         phone: document.getElementById('reg-phone').value.trim(),
         direccion: document.getElementById('reg-direccion').value.trim(),
         consultationReason: problema,
@@ -349,3 +380,5 @@
   </script>
 </body>
 </html>
+
+

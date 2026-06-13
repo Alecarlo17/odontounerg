@@ -30,7 +30,7 @@ async function loadAdminStats() {
       <div class="stat-card"><div class="stat-icon cyan"><i data-lucide="heart"></i></div><div class="stat-info"><div class="stat-label">Pacientes</div><div class="stat-value">${stats.totalPatients || 0}</div></div></div>
       <div class="stat-card"><div class="stat-icon orange"><i data-lucide="mail"></i></div><div class="stat-info"><div class="stat-label">Solicitudes</div><div class="stat-value">${stats.totalRequests || 0}</div></div></div>
       <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas</div><div class="stat-value">${stats.totalAppointments || 0}</div></div></div>
-      <div class="stat-card"><div class="stat-icon red"><i data-lucide="clock"></i></div><div class="stat-info"><div class="stat-label">Solicitudes Pendientes</div><div class="stat-value">${stats.pendingRequests || 0}</div></div></div>
+      <div class="stat-card"><div class="stat-icon red"><i data-lucide="user-x"></i></div><div class="stat-info"><div class="stat-label">Usuarios Suspendidos</div><div class="stat-value">${stats.suspendedUsers || 0}</div></div></div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch(e) {
@@ -208,8 +208,9 @@ async function renderTreatmentsChart() {
 function showSection(name) {
   document.querySelectorAll('.page-content > section').forEach(s => s.classList.add('hidden'));
   document.getElementById(`section-${name}`).classList.remove('hidden');
-  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-  event.target.closest('.sidebar-link')?.classList.add('active');
+  if (typeof setActiveSidebarLink === 'function') {
+    setActiveSidebarLink(name);
+  }
 
   const titles = {
     inicio: ['Panel Administrativo', 'Supervisión general'],
@@ -231,6 +232,8 @@ function showSection(name) {
     case 'solicitudes': loadAllRequests(); break;
     case 'citas': loadAllAppointments(); break;
     case 'reportes': loadUserReports(); break;
+    case 'actividad': loadActivityLog(); break;
+    case 'tratamientos': loadAdminTreatments(); break;
     case 'inicio': loadAdminStats(); break;
   }
 }
@@ -255,7 +258,7 @@ function filterUsers() {
 
 function renderUsersTable(users) {
   const roleLabels = { student: 'Estudiante', patient: 'Paciente', admin: 'Admin' };
-  document.getElementById('users-table').innerHTML = `
+  document.getElementById('users-list').innerHTML = `
     <table class="data-table">
       <thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Disponibilidad</th><th>Fecha Registro</th><th>Acciones</th></tr></thead>
       <tbody>
@@ -269,7 +272,9 @@ function renderUsersTable(users) {
             <td><span class="badge badge-primary">${roleLabels[u.role] || u.role}</span></td>
             <td>${u.disponibilidad || '-'}</td>
             <td>${formatDate(u.created_at)}</td>
-            <td><button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}')">Eliminar</button></td>
+            <td>
+              ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="openSuspendModal('${u.id}')">Suspender</button>` : `<span style="font-size:0.85rem;color:var(--text-muted)">N/A</span>`}
+            </td>
           </tr>
         `).join('')}
       </tbody>
@@ -282,7 +287,7 @@ async function loadStudentsTable() {
     const res = await fetch('/api/admin/students');
     const json = await res.json();
     const data = json.data || [];
-    document.getElementById('students-table').innerHTML = `
+    document.getElementById('students-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Cédula</th><th>Sección</th><th>Año</th><th>Estado</th></tr></thead>
         <tbody>${data.map(s => `
@@ -304,7 +309,7 @@ async function loadPatientsTable() {
     const res = await fetch('/api/admin/patients');
     const json = await res.json();
     const data = json.data || [];
-    document.getElementById('patients-table').innerHTML = `
+    document.getElementById('patients-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Problema</th><th>Estado</th></tr></thead>
         <tbody>${data.map(p => `
@@ -313,7 +318,7 @@ async function loadPatientsTable() {
             <td>${p.patients?.age || '-'}</td>
             <td>${p.phone || p.patients?.phone || '-'}</td>
             <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
-            <td>${p.disponibilidad || '-'}</td>
+            <td>${getPatientStatusBadge(p.disponibilidad)}</td>
           </tr>
         `).join('')}</tbody>
       </table>
@@ -326,7 +331,7 @@ async function loadAllRequests() {
     const res = await fetch('/api/admin/requests');
     const json = await res.json();
     const data = json.data || [];
-    document.getElementById('all-requests-table').innerHTML = `
+    document.getElementById('all-requests-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Estudiante</th><th>Paciente</th><th>Estado</th><th>Fecha</th></tr></thead>
         <tbody>${data.map(r => {
@@ -348,7 +353,7 @@ async function loadAllAppointments() {
     const res = await fetch('/api/admin/appointments');
     const json = await res.json();
     const data = json.data || [];
-    document.getElementById('all-appointments-table').innerHTML = `
+    document.getElementById('all-appointments-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Estudiante</th><th>Paciente</th><th>Fecha</th><th>Estado</th></tr></thead>
         <tbody>${data.map(a => {
@@ -365,18 +370,113 @@ async function loadAllAppointments() {
   } catch(e) {}
 }
 
-async function deleteUser(userId) {
-  const ok = await confirmAction('Eliminar Usuario', '¿Está seguro de eliminar este usuario? Esta acción no se puede deshacer.');
-  if (!ok) return;
+/**
+ * Cargar registro de actividad
+ */
+async function loadActivityLog() {
+  const container = document.getElementById('activity-list');
+  const dateFilter = document.getElementById('activity-date-filter')?.value || 'todos';
+  container.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
   try {
-    const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/admin/activity-log?dateFilter=${dateFilter}`);
+    const json = await res.json();
+    const logs = json.data || [];
+    if (logs.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="activity"></i></div><p class="empty-state-title">Sin actividad registrada</p></div>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Usuario</th><th>Acción</th><th>Módulo</th><th>Detalle</th><th>Fecha</th></tr></thead>
+          <tbody>${logs.map(l => `<tr>
+            <td><strong>${escapeHTML(l.user_name || 'Sistema')}</strong></td>
+            <td>${escapeHTML(l.accion)}</td>
+            <td><span class="badge badge-primary">${escapeHTML(l.modulo || '-')}</span></td>
+            <td style="font-size:0.8rem;color:var(--text-secondary)">${escapeHTML(l.detalle || '-')}</td>
+            <td>${formatDateTime(l.created_at)}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) {
+    container.innerHTML = '<div class="empty-state"><p class="empty-state-text">Error al cargar actividad</p></div>';
+  }
+}
+
+/**
+ * Cargar tratamientos en el admin
+ */
+async function loadAdminTreatments() {
+  const container = document.getElementById('treatments-list');
+  container.innerHTML = '<div class="empty-state"><p>Cargando...</p></div>';
+  try {
+    const res = await fetch('/api/admin/treatments');
+    const json = await res.json();
+    const data = json.data || [];
+    if (data.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="stethoscope"></i></div><p class="empty-state-title">Sin tratamientos</p></div>';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      return;
+    }
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead><tr><th>Paciente</th><th>Estudiante</th><th>Tratamiento</th><th>Sesiones</th><th>Estado</th><th>Fecha</th></tr></thead>
+          <tbody>${data.map(t => {
+            const stateMap = {
+              'pendiente': { text: 'Pendiente', class: 'badge-warning' },
+              'en_proceso': { text: 'En proceso', class: 'badge-primary' },
+              'finalizado': { text: 'Finalizado', class: 'badge-success' },
+              'completed': { text: 'Completado', class: 'badge-success' },
+              'accepted': { text: 'Asignado', class: 'badge-success' },
+              'active': { text: 'En tratamiento', class: 'badge-primary' },
+              'cancelled': { text: 'Cancelado', class: 'badge-gray' }
+            };
+            const sInfo = stateMap[t.estado] || { text: t.estado, class: 'badge-gray' };
+            return `<tr>
+              <td>${escapeHTML(t.patient_name || '-')}</td>
+              <td>${escapeHTML(t.student_name || '-')}</td>
+              <td><strong>${escapeHTML(t.tratamiento)}</strong></td>
+              <td>${t.sesiones_count || 0}</td>
+              <td><span class="badge ${sInfo.class}">${sInfo.text}</span></td>
+              <td>${formatDate(t.created_at)}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    `;
+  } catch(e) {
+    container.innerHTML = '<div class="empty-state"><p class="empty-state-text">Error al cargar tratamientos</p></div>';
+  }
+}
+
+function openSuspendModal(userId) {
+  document.getElementById('suspend-user-id').value = userId;
+  document.getElementById('suspend-reason').value = '';
+  document.getElementById('modal-suspender').classList.add('active');
+}
+
+async function handleSuspendSubmit(event) {
+  event.preventDefault();
+  const userId = document.getElementById('suspend-user-id').value;
+  const reason = document.getElementById('suspend-reason').value;
+  
+  try {
+    const res = await fetch(`/api/admin/users/${userId}/suspend`, { 
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
     const json = await res.json();
     if (!json.success) throw new Error();
-    showToast('Usuario eliminado', 'success');
+    showToast('Usuario suspendido', 'success');
+    closeModal('modal-suspender');
     loadAllUsers();
     loadAdminStats();
   } catch (error) {
-    showToast('Error al eliminar usuario', 'error');
+    showToast('Error al suspender usuario', 'error');
   }
 }
 

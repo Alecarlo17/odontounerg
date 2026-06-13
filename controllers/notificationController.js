@@ -25,13 +25,25 @@ async function loadNotifications(req, res) {
 
 async function countUnread(req, res) {
   const { userId } = req.params;
+  const { categoria } = req.query;
   try {
-    const { count, error } = await db.supabase
+    let query = db.supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('leida', false);
 
+    if (categoria === 'solicitudes') {
+      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected']);
+    } else if (categoria === 'chat') {
+      query = query.eq('tipo', 'mensaje');
+    } else if (categoria === 'citas') {
+      query = query.eq('tipo', 'cita');
+    } else if (categoria === 'generales') {
+      query = query.in('tipo', ['alta_medica', 'sistema', 'recordatorio', 'request_discharged', 'calificacion']);
+    }
+
+    const { count, error } = await query;
     if (error) throw error;
     return res.json({ success: true, count: count || 0 });
   } catch(e) {
@@ -58,13 +70,25 @@ async function markRead(req, res) {
 
 async function markAllRead(req, res) {
   const { userId } = req.params;
+  const { categoria } = req.query;
   try {
-    const { error } = await db.supabase
+    let query = db.supabase
       .from('notifications')
       .update({ leida: true })
       .eq('user_id', userId)
       .eq('leida', false);
 
+    if (categoria === 'solicitudes') {
+      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected']);
+    } else if (categoria === 'chat') {
+      query = query.eq('tipo', 'mensaje');
+    } else if (categoria === 'citas') {
+      query = query.eq('tipo', 'cita');
+    } else if (categoria === 'generales') {
+      query = query.in('tipo', ['alta_medica', 'sistema', 'recordatorio', 'request_discharged', 'calificacion']);
+    }
+
+    const { error } = await query;
     if (error) throw error;
     return res.json({ success: true });
   } catch(e) {

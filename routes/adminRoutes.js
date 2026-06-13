@@ -11,6 +11,13 @@ router.get('/students', adminController.getStudents);
 router.get('/patients', adminController.getPatients);
 router.get('/requests', adminController.getAllRequests);
 router.get('/appointments', adminController.getAllAppointments);
-router.delete('/users/:id', adminController.deleteUser);
+router.put('/users/:id/suspend', adminController.suspendUser);
+
+// Métricas académicas y reportes
+router.get('/metrics', adminController.getMetrics);
+router.get('/reports', adminController.getReportData);
+router.get('/activity-log', adminController.getActivityLog);
+router.get('/treatments', adminController.getAllTreatments);
+
 
 module.exports = router;

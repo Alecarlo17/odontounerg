@@ -101,6 +101,13 @@ async function loginUser(email, password) {
       return;
     }
 
+    if (profile.is_suspended) {
+      showLoading(false);
+      showToast('Su cuenta ha sido suspendida: ' + (profile.suspension_reason || 'Sin motivo especificado'), 'error');
+      await client.auth.signOut();
+      return;
+    }
+
     showLoading(false);
     showToast('Inicio de sesión exitoso', 'success');
 
@@ -182,6 +189,7 @@ async function registerStudent(formData) {
       academic_year: formData.academicYear || null,
       section: formData.section || null,
       age: formData.age || null,
+      gender: formData.gender || null,
       treatments_needed: formData.treatments || []
     });
 
@@ -285,6 +293,23 @@ async function registerPatient(formData) {
       return;
     }
 
+    // Generar diagnóstico inicial automático
+    const { error: diagError } = await client.from('initial_diagnosis').insert({
+      patient_id: finalId,
+      problema_principal: formData.consultationReason || 'No especificado',
+      motivo_consulta: 'Registro inicial de paciente',
+      sintomas: null,
+      nivel_dolor: null,
+      tiempo_evolucion: null,
+      especialidad_requerida: null,
+      observaciones: 'Generado automáticamente durante el registro.',
+      prioridad: 'media'
+    });
+
+    if (diagError) {
+      console.error('Error generando diagnóstico inicial:', diagError);
+    }
+
     showLoading(false);
     showToast('Registro exitoso. Iniciando sesión...', 'success');
     
@@ -374,6 +399,14 @@ async function requireAuth() {
     return null;
   }
 
+  // Verificar validez real del token con el servidor para evitar "flash" de sesión
+  const { data: { user }, error: userError } = await client.auth.getUser();
+  if (userError || !user) {
+    await client.auth.signOut();
+    navigateTo('/login');
+    return null;
+  }
+
   // Iniciar vigilante de sesión (verifica cada 60 segundos)
   setupSessionWatcher(session);
 
@@ -386,6 +419,13 @@ async function requireAuth() {
 
   if (profileError || !profile) {
     showToast('Error: Perfil no configurado. Inicie sesión nuevamente.', 'error');
+    await client.auth.signOut();
+    navigateTo('/login');
+    return null;
+  }
+
+  if (profile.is_suspended) {
+    showToast('Su cuenta ha sido suspendida: ' + (profile.suspension_reason || 'Sin motivo especificado'), 'error');
     await client.auth.signOut();
     navigateTo('/login');
     return null;
