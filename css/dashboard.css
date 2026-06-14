@@ -689,6 +689,8 @@
   background: rgba(15, 23, 42, 0.6);
   z-index: 99;
   animation: fadeIn 0.3s ease;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #sidebar-overlay.active {
@@ -714,10 +716,7 @@
     box-shadow: var(--shadow-xl);
   }
 
-  /* El overlay se activa con el sidebar */
-  .sidebar.open ~ #sidebar-overlay {
-    display: block;
-  }
+  /* El overlay se activa mediante JavaScript agregando la clase .active */
 
   /* Contenido principal sin margen izquierdo en móvil */
   .main-content {

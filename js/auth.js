@@ -160,8 +160,16 @@ async function registerStudent(formData) {
 
     if (error) {
       showLoading(false);
-      showToast('Error en registro: ' + error.message, 'error');
-      alert('Atención: No se pudo registrar. Razón: ' + error.message + '\n\nSi el mensaje dice "User already registered", significa que el correo ya está en uso. Intenta iniciar sesión o usa otro correo.');
+      let translatedMsg = error.message;
+      if (translatedMsg.includes('Password should contain')) {
+        translatedMsg = 'La contraseña debe tener al menos una letra minúscula, una mayúscula, un número y un carácter especial (!@#$%^& etc).';
+      } else if (translatedMsg.includes('User already registered')) {
+        translatedMsg = 'El correo ya está en uso. Intente iniciar sesión o use otro correo.';
+      } else if (translatedMsg.includes('Password should be at least')) {
+        translatedMsg = 'La contraseña debe tener al menos 8 caracteres.';
+      }
+      showToast('Error en registro: ' + translatedMsg, 'error');
+      alert('Atención: No se pudo registrar.\n\nRazón: ' + translatedMsg);
       return;
     }
     
@@ -252,8 +260,16 @@ async function registerPatient(formData) {
 
     if (error) {
       showLoading(false);
-      showToast('Error en registro: ' + error.message, 'error');
-      alert('Atención: No se pudo registrar. Razón: ' + error.message + '\n\nSi el mensaje dice "User already registered", significa que el correo ya está en uso. Intenta iniciar sesión o usa otro correo.');
+      let translatedMsg = error.message;
+      if (translatedMsg.includes('Password should contain')) {
+        translatedMsg = 'La contraseña debe tener al menos una letra minúscula, una mayúscula, un número y un carácter especial (!@#$%^& etc).';
+      } else if (translatedMsg.includes('User already registered')) {
+        translatedMsg = 'El correo ya está en uso. Intente iniciar sesión o use otro correo.';
+      } else if (translatedMsg.includes('Password should be at least')) {
+        translatedMsg = 'La contraseña debe tener al menos 8 caracteres.';
+      }
+      showToast('Error en registro: ' + translatedMsg, 'error');
+      alert('Atención: No se pudo registrar.\n\nRazón: ' + translatedMsg);
       return;
     }
     

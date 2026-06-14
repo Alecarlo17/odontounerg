@@ -262,6 +262,11 @@ function showSection(sectionName, forceReload = false) {
     setActiveSidebarLink(sectionName);
   }
 
+  // Cerrar sidebar en móvil al cambiar de sección
+  if (window.innerWidth <= 768 && typeof closeSidebarOverlay === 'function') {
+    closeSidebarOverlay();
+  }
+
   const titles = {
     inicio: ['Inicio', 'Panel de control'],
     estudiantes: ['Estudiantes', 'Ver estudiantes disponibles'],
@@ -502,7 +507,8 @@ async function loadProfileData() {
   document.getElementById('prof-name').value = profile.full_name || '';
   document.getElementById('prof-phone').value = profile.phone || '';
   document.getElementById('prof-disponibilidad').value = profile.disponibilidad || 'disponible';
-  document.getElementById('prof-age').value = roleData?.age || '';
+  const ageVal = roleData?.birth_date ? calculateAge(roleData.birth_date) : (roleData?.age || '');
+  document.getElementById('prof-age').value = ageVal;
   document.getElementById('prof-direccion').value = roleData?.direccion || '';
   document.getElementById('prof-problema').value = roleData?.consultation_reason || '';
   document.getElementById('prof-antecedentes').value = roleData?.medical_history || '';

@@ -212,6 +212,11 @@ function showSection(name) {
     setActiveSidebarLink(name);
   }
 
+  // Cerrar sidebar en móvil al cambiar de sección
+  if (window.innerWidth <= 768 && typeof closeSidebarOverlay === 'function') {
+    closeSidebarOverlay();
+  }
+
   const titles = {
     inicio: ['Panel Administrativo', 'Supervisión general'],
     usuarios: ['Usuarios', 'Gestión de usuarios'],
@@ -312,15 +317,17 @@ async function loadPatientsTable() {
     document.getElementById('patients-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Problema</th><th>Estado</th></tr></thead>
-        <tbody>${data.map(p => `
+        <tbody>${data.map(p => {
+          const age = p.patients?.birth_date ? calculateAge(p.patients.birth_date) : (p.patients?.age || '-');
+          return `
           <tr>
             <td>${escapeHTML(p.full_name)}</td>
-            <td>${p.patients?.age || '-'}</td>
+            <td>${age}</td>
             <td>${p.phone || p.patients?.phone || '-'}</td>
             <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
             <td>${getPatientStatusBadge(p.disponibilidad)}</td>
           </tr>
-        `).join('')}</tbody>
+        `}).join('')}</tbody>
       </table>
     `;
   } catch(e) {}

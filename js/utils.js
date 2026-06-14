@@ -98,6 +98,23 @@ function formatDateTime(dateStr) {
 }
 
 /**
+ * Calcular edad a partir de fecha de nacimiento
+ * @param {string} birthDateString - Fecha en formato ISO o YYYY-MM-DD
+ * @returns {number} Edad
+ */
+function calculateAge(birthDateString) {
+  if (!birthDateString) return 0;
+  const today = new Date();
+  const birthDate = new Date(birthDateString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+  }
+  return age;
+}
+
+/**
  * Formatear hora relativa (hace X minutos/horas)
  * @param {string} dateStr - Fecha en formato ISO
  * @returns {string}

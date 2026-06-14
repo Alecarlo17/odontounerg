@@ -207,6 +207,11 @@ function showSection(sectionName, forceReload = false) {
     setActiveSidebarLink(sectionName);
   }
 
+  // Cerrar sidebar en móvil al cambiar de sección
+  if (window.innerWidth <= 768 && typeof closeSidebarOverlay === 'function') {
+    closeSidebarOverlay();
+  }
+
   // Actualizar título
   const titles = {
     inicio: ['Inicio', 'Panel de control'],
@@ -298,17 +303,7 @@ function filterPatients() {
   renderPatients(filtered);
 }
 
-function calculateAge(birthDateString) {
-  if (!birthDateString) return 0;
-  const today = new Date();
-  const birthDate = new Date(birthDateString);
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-  }
-  return age;
-}
+
 
 /**
  * Renderizar tarjetas de pacientes
@@ -978,9 +973,12 @@ async function viewPatientProfile(patientId) {
         `<div class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(p.full_name)}</div>`;
       
       const badgeClass = p.disponibilidad === 'disponible' ? 'badge-success' : 'badge-warning';
+      const ageNum = p.patients?.birth_date ? calculateAge(p.patients.birth_date) : p.patients?.age;
+      const ageText = ageNum ? ageNum + ' años' : 'Edad no especificada';
+
       document.getElementById('perfil-paciente-badges').innerHTML = 
         `<span class="badge ${badgeClass}">${p.disponibilidad || 'No especificada'}</span>
-         <span class="badge badge-primary">${p.patients?.age ? p.patients.age + ' años' : 'Edad no especificada'}</span>`;
+         <span class="badge badge-primary">${ageText}</span>`;
          
       document.getElementById('perfil-paciente-genero').textContent = p.gender || 'No especificado';
       document.getElementById('perfil-paciente-telefono').textContent = p.p_phone || p.phone || 'No especificado';
