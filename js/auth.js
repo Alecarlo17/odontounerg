@@ -280,10 +280,14 @@ async function registerPatient(formData) {
       cedula: formData.cedula,
       phone: formData.phone || null,
       direccion: formData.direccion || null,
-      age: formData.age || null,
+      birth_date: formData.birthDate || null,
       gender: formData.gender || null,
+      alt_contact_name: formData.altContactName || null,
+      alt_contact_phone: formData.altContactPhone || null,
       medical_history: formData.medicalHistory || null,
       consultation_reason: formData.consultationReason || null,
+      descripcion_problema: formData.descripcionProblema || null,
+      intensidad_dolor: formData.intensidadDolor || null,
       accepts_requests: true
     });
 
@@ -291,23 +295,6 @@ async function registerPatient(formData) {
       showLoading(false);
       alert('Error guardando datos de paciente: ' + patientError.message);
       return;
-    }
-
-    // Generar diagnóstico inicial automático
-    const { error: diagError } = await client.from('initial_diagnosis').insert({
-      patient_id: finalId,
-      problema_principal: formData.consultationReason || 'No especificado',
-      motivo_consulta: 'Registro inicial de paciente',
-      sintomas: null,
-      nivel_dolor: null,
-      tiempo_evolucion: null,
-      especialidad_requerida: null,
-      observaciones: 'Generado automáticamente durante el registro.',
-      prioridad: 'media'
-    });
-
-    if (diagError) {
-      console.error('Error generando diagnóstico inicial:', diagError);
     }
 
     showLoading(false);
@@ -455,8 +442,8 @@ function setupSessionWatcher(session) {
 
     if (!currentSession) {
       clearInterval(window._sessionWatcherInterval);
-      showToast('Su sesión ha expirado. Será redirigido.', 'warning');
-      setTimeout(() => navigateTo('/login'), 1500);
+      showToast('Cerrando sesión...', 'info');
+      setTimeout(() => window.location.href = '/login', 1000);
       return;
     }
 
@@ -532,4 +519,23 @@ async function getCurrentUser() {
   }
 
   return { user: session.user, profile, roleData };
+}
+
+/**
+ * Recuperar contraseña
+ */
+async function recoverPassword(email) {
+  if (!email) {
+    showToast('Por favor, ingrese su correo', 'error');
+    return;
+  }
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + '/recuperar-clave', // O una página de reset password real
+    });
+    if (error) throw error;
+    showToast('Se ha enviado un enlace a su correo', 'success');
+  } catch (e) {
+    showToast(e.message || 'Error al enviar correo de recuperación', 'error');
+  }
 }

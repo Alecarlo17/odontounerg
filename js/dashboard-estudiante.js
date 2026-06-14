@@ -268,27 +268,16 @@ async function loadPatients() {
  */
 function filterPatients() {
   const searchTerm = document.getElementById('search-patients').value.toLowerCase();
-  const especialidad = document.getElementById('filter-especialidad').value;
-  const prioridad = document.getElementById('filter-prioridad').value;
-  const sexo = document.getElementById('filter-sexo').value;
-  const orden = document.getElementById('filter-orden').value;
+  const sexo = document.getElementById('filter-sexo')?.value;
+  const orden = document.getElementById('filter-orden')?.value;
 
   let filtered = allPatients;
 
   if (searchTerm) {
     filtered = filtered.filter(p => 
       p.full_name?.toLowerCase().includes(searchTerm) ||
-      p.initial_diagnosis?.problema_principal?.toLowerCase().includes(searchTerm) ||
       p.patients?.consultation_reason?.toLowerCase().includes(searchTerm)
     );
-  }
-
-  if (especialidad && especialidad !== 'all' && especialidad !== '') {
-    filtered = filtered.filter(p => p.initial_diagnosis?.especialidad_requerida === especialidad || p.patients?.consultation_reason === especialidad);
-  }
-
-  if (prioridad && prioridad !== 'all' && prioridad !== '') {
-    filtered = filtered.filter(p => p.initial_diagnosis?.prioridad === prioridad);
   }
 
   if (sexo && sexo !== 'all' && sexo !== '') {
@@ -296,18 +285,29 @@ function filterPatients() {
   }
 
   // Ordenamiento
-  if (orden === 'prioridad') {
-    const vals = { 'alta': 3, 'media': 2, 'baja': 1, null: 0, undefined: 0 };
-    filtered.sort((a, b) => vals[b.initial_diagnosis?.prioridad] - vals[a.initial_diagnosis?.prioridad]);
-  } else if (orden === 'fecha') {
-    filtered.sort((a, b) => new Date(b.initial_diagnosis?.created_at || 0) - new Date(a.initial_diagnosis?.created_at || 0));
+  if (orden === 'fecha') {
+    filtered.sort((a, b) => new Date(b.patients?.birth_date || 0) - new Date(a.patients?.birth_date || 0)); // sorting by birth date just as an example, but perhaps it's better by registration date. Wait, we don't have registration date in the payload. Let's just keep as is or sort by id.
   } else if (orden === 'edad') {
-    filtered.sort((a, b) => (b.patients?.age || 0) - (a.patients?.age || 0));
-  } else if (orden === 'especialidad') {
-    filtered.sort((a, b) => (a.initial_diagnosis?.especialidad_requerida || '').localeCompare(b.initial_diagnosis?.especialidad_requerida || ''));
+    filtered.sort((a, b) => {
+      const ageA = a.patients?.birth_date ? calculateAge(a.patients.birth_date) : (a.patients?.age || 0);
+      const ageB = b.patients?.birth_date ? calculateAge(b.patients.birth_date) : (b.patients?.age || 0);
+      return ageB - ageA;
+    });
   }
 
   renderPatients(filtered);
+}
+
+function calculateAge(birthDateString) {
+  if (!birthDateString) return 0;
+  const today = new Date();
+  const birthDate = new Date(birthDateString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+  }
+  return age;
 }
 
 /**
@@ -325,6 +325,7 @@ function renderPatients(patients) {
     const disponibilidad = p.disponibilidad || 'disponible';
     const dispBadge = disponibilidad === 'disponible' ? 'badge-success' : disponibilidad === 'ocupado' ? 'badge-warning' : 'badge-error';
     const dispText = disponibilidad === 'disponible' ? 'Disponible' : disponibilidad === 'ocupado' ? 'Ocupado' : 'No disponible';
+    const age = patient?.birth_date ? calculateAge(patient.birth_date) : (patient?.age || 'N/A');
 
     return `
       <div class="patient-card">
@@ -334,17 +335,15 @@ function renderPatients(patients) {
             : `<span class="avatar avatar-placeholder" style="width:48px;height:48px;font-size:1rem;">${getInitials(p.full_name)}</span>`}
           <div>
             <div class="patient-card-name">${escapeHTML(p.full_name)}</div>
-            <div class="patient-card-meta">${patient?.age ? patient.age + ' años' : ''} ${patient?.gender ? '· ' + patient.gender : ''}</div>
+            <div class="patient-card-meta">${age} años ${patient?.gender ? '· ' + patient.gender : ''}</div>
           </div>
-          <span class="badge ${p.initial_diagnosis?.prioridad === 'alta' ? 'badge-error' : p.initial_diagnosis?.prioridad === 'media' ? 'badge-warning' : 'badge-success'}" style="margin-left:auto">${(p.initial_diagnosis?.prioridad || 'Baja').toUpperCase()}</span>
         </div>
         <div class="patient-card-body">
-          <div class="patient-card-problem"><i data-lucide="heart-pulse" style="width:14px;height:14px;"></i> ${escapeHTML(p.initial_diagnosis?.problema_principal || patient?.consultation_reason || 'Sin problema principal')}</div>
+          <div class="patient-card-problem"><i data-lucide="heart-pulse" style="width:14px;height:14px;"></i> ${escapeHTML(patient?.consultation_reason || 'Sin motivo especificado')}</div>
           
           <div style="margin-top:0.75rem; font-size:0.85rem; display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; color:var(--text-secondary);">
-            <div><strong>Especialidad:</strong> ${escapeHTML(p.initial_diagnosis?.especialidad_requerida || 'N/A')}</div>
-            <div><strong>Dolor:</strong> ${p.initial_diagnosis?.nivel_dolor ? p.initial_diagnosis.nivel_dolor + '/10' : 'N/A'}</div>
-            <div style="grid-column:1/-1"><strong>Tiempo:</strong> ${escapeHTML(p.initial_diagnosis?.tiempo_evolucion || 'N/A')}</div>
+            <div style="grid-column:1/-1"><strong>Descripción:</strong> ${escapeHTML(patient?.descripcion_problema || 'No especificada')}</div>
+            <div><strong>Dolor:</strong> ${escapeHTML(patient?.intensidad_dolor || 'N/A')}</div>
           </div>
 
           ${p.phone ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem">📞 ${escapeHTML(p.phone)}</p>` : ''}
@@ -976,7 +975,7 @@ async function viewPatientProfile(patientId) {
       const p = json.data;
       document.getElementById('perfil-paciente-nombre').textContent = p.full_name;
       document.getElementById('perfil-paciente-avatar').innerHTML = 
-        `<div class="avatar avatar-xl">${p.full_name.charAt(0).toUpperCase()}</div>`;
+        `<div class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(p.full_name)}</div>`;
       
       const badgeClass = p.disponibilidad === 'disponible' ? 'badge-success' : 'badge-warning';
       document.getElementById('perfil-paciente-badges').innerHTML = 
@@ -988,20 +987,14 @@ async function viewPatientProfile(patientId) {
       document.getElementById('perfil-paciente-direccion').textContent = p.direccion || 'No especificada';
       document.getElementById('perfil-paciente-fecha-registro').textContent = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'No especificada';
       
-      const prob = p.initial_diagnosis?.problema_principal || p.consultation_reason || 'No especificado';
-      const esp = p.initial_diagnosis?.especialidad_requerida || 'N/A';
-      const sintomas = p.initial_diagnosis?.sintomas || 'N/A';
-      const dolor = p.initial_diagnosis?.nivel_dolor ? p.initial_diagnosis.nivel_dolor + '/10' : 'N/A';
-      const ant = p.medical_history || 'Ninguno';
+      const prob = p.patients?.consultation_reason || p.consultation_reason || 'No especificado';
+      const desc = p.patients?.descripcion_problema || p.descripcion_problema || 'No especificada';
+      const dolor = p.patients?.intensidad_dolor || p.intensidad_dolor || 'N/A';
+      const ant = p.patients?.medical_history || p.medical_history || 'Ninguno';
       
-      document.getElementById('perfil-paciente-tratamiento').innerHTML = `
-        <div style="font-size:0.9rem;margin-top:0.5rem;">
-          <p><strong>Problema:</strong> ${escapeHTML(prob)}</p>
-          <p><strong>Especialidad sugerida:</strong> ${escapeHTML(esp)}</p>
-          <p><strong>Síntomas:</strong> ${escapeHTML(sintomas)}</p>
-          <p><strong>Dolor:</strong> ${dolor}</p>
-        </div>
-      `;
+      document.getElementById('perfil-paciente-tratamiento').innerHTML = `<span>${escapeHTML(prob)}</span>`;
+      document.getElementById('perfil-paciente-descripcion').innerHTML = `<span>${escapeHTML(desc)}</span><br><br><p style="margin-bottom:0"><strong>Intensidad del Dolor:</strong> ${escapeHTML(dolor)}</p>`;
+
       document.getElementById('perfil-paciente-antecedentes').innerHTML = `<div style="font-size:0.85rem;color:var(--text-secondary);margin-top:0.25rem;">${escapeHTML(ant)}</div>`;
       document.getElementById('perfil-paciente-disponibilidad').textContent = p.disponibilidad || 'No especificada';
       

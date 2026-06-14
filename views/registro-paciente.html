@@ -66,15 +66,25 @@
             <span class="form-error" id="reg-email-error"></span>
           </div>
 
-          <!-- Edad y Teléfono en fila -->
+          <!-- Fecha de Nacimiento y Teléfono en fila -->
           <div style="display: flex; gap: 0.75rem;">
             <div class="form-group" style="flex:1">
-              <label class="form-label" for="reg-age">Edad</label>
-              <input type="number" id="reg-age" class="form-input" placeholder="Ej: 30" min="1" max="120">
+              <label class="form-label" for="reg-birth-date">Fecha de Nacimiento *</label>
+              <input type="date" id="reg-birth-date" class="form-input" required>
+              <span class="form-error" id="reg-birth-date-error"></span>
             </div>
             <div class="form-group" style="flex:1">
-              <label class="form-label" for="reg-phone">Teléfono</label>
-              <input type="tel" id="reg-phone" class="form-input" placeholder="0412-1234567">
+              <label class="form-label" for="reg-phone">Teléfono *</label>
+              <input type="tel" id="reg-phone" class="form-input" placeholder="0412-1234567" required>
+            </div>
+          </div>
+
+          <!-- Contacto Alternativo (Opcional) -->
+          <div class="form-group">
+            <label class="form-label">Contacto Alternativo (Familiar/Acompañante) - Opcional</label>
+            <div style="display: flex; gap: 0.75rem;">
+              <input type="text" id="reg-alt-name" class="form-input" placeholder="Nombre" style="flex:1">
+              <input type="tel" id="reg-alt-phone" class="form-input" placeholder="Teléfono" style="flex:1">
             </div>
           </div>
 
@@ -97,29 +107,81 @@
             <input type="text" id="reg-direccion" class="form-input" placeholder="Ciudad, Estado">
           </div>
 
-          <!-- Problema odontológico -->
+          <!-- ==============================
+               INFORMACIÓN CLÍNICA BÁSICA
+               ============================== -->
+          <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
+          <h3 style="margin-bottom: 1rem; font-size: 1.1rem; color: var(--text-primary);">Información Clínica</h3>
+
+          <!-- Motivo de Consulta -->
           <div class="form-group">
-            <label class="form-label" for="reg-problema">Problema Odontológico Principal *</label>
-            <select id="reg-problema" class="form-select" required>
-              <option value="">Seleccione un problema</option>
-              <option value="Ortodoncia">Ortodoncia</option>
-              <option value="Extracción">Extracción</option>
-              <option value="Limpieza dental">Limpieza dental</option>
+            <label class="form-label" for="reg-motivo">¿Qué problema presenta o por qué desea acudir a la clínica? *</label>
+            <select id="reg-motivo" class="form-select" onchange="toggleOtroMotivo()" required>
+              <option value="">Seleccione una opción</option>
+              <option value="Dolor dental">Dolor dental</option>
+              <option value="Muela dañada o rota">Muela dañada o rota</option>
               <option value="Caries">Caries</option>
-              <option value="Endodoncia">Endodoncia</option>
-              <option value="Prótesis">Prótesis</option>
-              <option value="Ortopedia">Ortopedia</option>
-              <option value="Periodoncia">Periodoncia</option>
+              <option value="Inflamación o infección">Inflamación o infección</option>
+              <option value="Sangrado de encías">Sangrado de encías</option>
+              <option value="Limpieza dental">Limpieza dental</option>
+              <option value="Extracción dental">Extracción dental</option>
+              <option value="Prótesis o dentadura">Prótesis o dentadura</option>
+              <option value="Ortodoncia">Ortodoncia</option>
+              <option value="Revisión general">Revisión general</option>
               <option value="Otro">Otro</option>
             </select>
-            <span class="form-error" id="reg-problema-error"></span>
+            <input type="text" id="reg-motivo-otro" class="form-input" placeholder="Especifique el motivo..." style="margin-top: 0.5rem; display: none;">
+            <span class="form-error" id="reg-motivo-error"></span>
           </div>
 
-          <!-- Antecedentes médicos -->
+          <!-- Descripción del Problema -->
           <div class="form-group">
-            <label class="form-label" for="reg-antecedentes">Antecedentes Médicos</label>
-            <textarea id="reg-antecedentes" class="form-textarea" placeholder="Describa si tiene alguna condición médica, alergias, medicamentos, etc." rows="3"></textarea>
+            <label class="form-label" for="reg-descripcion">Explique brevemente qué está ocurriendo *</label>
+            <textarea id="reg-descripcion" class="form-textarea" placeholder="Ej: Me duele una muela al comer desde hace dos semanas." rows="2" required></textarea>
+            <span class="form-error" id="reg-descripcion-error"></span>
           </div>
+
+          <!-- Intensidad del Dolor -->
+          <div class="form-group">
+            <label class="form-label" for="reg-dolor">Intensidad del Dolor *</label>
+            <select id="reg-dolor" class="form-select" required>
+              <option value="">Seleccione una opción</option>
+              <option value="Sin dolor">🟢 Sin dolor</option>
+              <option value="Dolor leve">🟡 Dolor leve</option>
+              <option value="Dolor moderado">🟠 Dolor moderado</option>
+              <option value="Dolor fuerte">🔴 Dolor fuerte</option>
+            </select>
+            <span class="form-error" id="reg-dolor-error"></span>
+          </div>
+
+          <!-- Antecedentes Médicos -->
+          <div class="form-group">
+            <label class="form-label">¿Padece alguna de las siguientes condiciones?</label>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Diabetes"> Diabetes
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Hipertensión"> Hipertensión
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Problemas cardíacos"> Problemas cardíacos
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Embarazo"> Embarazo
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Alergias a medicamentos"> Alergias a medicamentos
+              </label>
+              <label style="display:flex; align-items:center; gap:0.5rem;">
+                <input type="checkbox" name="antecedentes" value="Ninguna" onchange="toggleNingunaCondicion(this)"> Ninguna de las anteriores
+              </label>
+            </div>
+            <label class="form-label" for="reg-antecedentes-otros">Otra condición médica importante</label>
+            <input type="text" id="reg-antecedentes-otros" class="form-input" placeholder="Especifique si tiene otra condición...">
+          </div>
+          
+          <hr style="margin: 2rem 0; border: none; border-top: 1px solid var(--border);">
 
           <!-- Foto -->
           <div class="form-group">
@@ -187,6 +249,34 @@
           document.getElementById('photo-icon').style.display = 'none';
         };
         reader.readAsDataURL(input.files[0]);
+      }
+    }
+
+    // ============================================
+    // TOGGLES Y LÓGICA DE FORMULARIO
+    // ============================================
+    function toggleOtroMotivo() {
+      const select = document.getElementById('reg-motivo');
+      const inputOtro = document.getElementById('reg-motivo-otro');
+      if (select.value === 'Otro') {
+        inputOtro.style.display = 'block';
+        inputOtro.required = true;
+      } else {
+        inputOtro.style.display = 'none';
+        inputOtro.required = false;
+        inputOtro.value = '';
+      }
+    }
+
+    function toggleNingunaCondicion(checkbox) {
+      const others = document.querySelectorAll('input[name="antecedentes"]:not([value="Ninguna"])');
+      if (checkbox.checked) {
+        others.forEach(cb => { cb.checked = false; cb.disabled = true; });
+        document.getElementById('reg-antecedentes-otros').value = '';
+        document.getElementById('reg-antecedentes-otros').disabled = true;
+      } else {
+        others.forEach(cb => cb.disabled = false);
+        document.getElementById('reg-antecedentes-otros').disabled = false;
       }
     }
 
@@ -281,11 +371,11 @@
       }
     });
 
-    document.getElementById('reg-problema').addEventListener('change', function() {
+    document.getElementById('reg-motivo').addEventListener('change', function() {
       if (!this.value) {
-        setFieldError('reg-problema', 'Debe seleccionar un problema odontológico.');
+        setFieldError('reg-motivo', 'Debe seleccionar un motivo de consulta.');
       } else {
-        setFieldError('reg-problema', '');
+        setFieldError('reg-motivo', '');
       }
     });
 
@@ -339,23 +429,59 @@
         hasError = true;
       }
 
-      // Validar problema odontológico
-      const problema = document.getElementById('reg-problema').value;
-      if (!problema) {
-        setFieldError('reg-problema', 'Debe completar este campo.');
+      // Validar fecha de nacimiento
+      const birthDate = document.getElementById('reg-birth-date').value;
+      if (!birthDate) {
+        setFieldError('reg-birth-date', 'Debe indicar su fecha de nacimiento.');
         hasError = true;
       }
 
-      // Validar género
+      // Validar motivo de consulta
+      let motivo = document.getElementById('reg-motivo').value;
+      if (!motivo) {
+        setFieldError('reg-motivo', 'Debe completar este campo.');
+        hasError = true;
+      } else if (motivo === 'Otro') {
+        const otroMotivo = document.getElementById('reg-motivo-otro').value.trim();
+        if (!otroMotivo) {
+          setFieldError('reg-motivo', 'Debe especificar el motivo.');
+          hasError = true;
+        } else {
+          motivo = 'Otro: ' + otroMotivo;
+        }
+      }
+      
+      // Validar descripción del problema
+      const descripcion = document.getElementById('reg-descripcion').value.trim();
+      if (!descripcion) {
+        setFieldError('reg-descripcion', 'Debe describir brevemente qué está ocurriendo.');
+        hasError = true;
+      }
+      
+      // Validar intensidad del dolor
+      const dolor = document.getElementById('reg-dolor').value;
+      if (!dolor) {
+        setFieldError('reg-dolor', 'Debe seleccionar la intensidad del dolor.');
+        hasError = true;
+      }
+
+      // Género
       const gender = document.getElementById('reg-gender').value;
       if (!gender) {
         setFieldError('reg-gender', 'Debe seleccionar su género.');
         hasError = true;
       }
 
-      // Si hay errores, detener el envío y hacer scroll al primer error
+      // Compilar antecedentes médicos
+      const checkboxes = document.querySelectorAll('input[name="antecedentes"]:checked');
+      let antecedentesArr = Array.from(checkboxes).map(cb => cb.value);
+      const otrosAntecedentes = document.getElementById('reg-antecedentes-otros').value.trim();
+      if (otrosAntecedentes) antecedentesArr.push('Otros: ' + otrosAntecedentes);
+      const antecedentesMedicos = antecedentesArr.join(', ') || 'Ninguno reportado';
+
+      // Si hay errores, detener el envío
       if (hasError) {
-        const firstError = document.querySelector('.form-input.error, .form-select.error');
+        const firstError = document.querySelector('.form-input.error, .form-select.error, .form-textarea.error');
         if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
@@ -365,12 +491,16 @@
         fullName: name,
         cedula: cedula,
         email: email,
-        age: document.getElementById('reg-age').value,
+        birthDate: birthDate,
         gender: gender,
         phone: document.getElementById('reg-phone').value.trim(),
+        altContactName: document.getElementById('reg-alt-name').value.trim(),
+        altContactPhone: document.getElementById('reg-alt-phone').value.trim(),
         direccion: document.getElementById('reg-direccion').value.trim(),
-        consultationReason: problema,
-        medicalHistory: document.getElementById('reg-antecedentes').value.trim(),
+        consultationReason: motivo,
+        descripcionProblema: descripcion,
+        intensidadDolor: dolor,
+        medicalHistory: antecedentesMedicos,
         password: password,
         confirmPassword: confirmPassword
       };

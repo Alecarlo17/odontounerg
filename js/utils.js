@@ -120,7 +120,7 @@ function timeAgo(dateStr) {
  */
 function getInitials(name) {
   if (!name) return '?';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  return name.trim().split(/\s+/).map(n => n[0]).join('').toUpperCase().substring(0, 2);
 }
 
 /**
@@ -211,12 +211,13 @@ function getPatientStatusBadge(status) {
   const norm = (status || '').toLowerCase().trim();
   const map = {
     'disponible': { emoji: '🟢', text: 'Disponible', class: 'badge-success' },
+    'activo': { emoji: '🟢', text: 'Activo', class: 'badge-success' },
     'asignado': { emoji: '🟡', text: 'Asignado', class: 'badge-warning' },
     'en_tratamiento': { emoji: '🔵', text: 'En tratamiento', class: 'badge-primary' },
     'alta_medica': { emoji: '⚫', text: 'Alta médica', class: 'badge-gray' },
     'suspendido': { emoji: '🔴', text: 'Suspendido', class: 'badge-error' }
   };
-  const s = map[norm] || { emoji: '⚪', text: status || 'Desconocido', class: 'badge-gray' };
+  const s = map[norm] || { emoji: '🟢', text: status || 'Activo', class: 'badge-success' };
   return `<span class="badge ${s.class}">${s.emoji} ${s.text}</span>`;
 }
 
@@ -276,6 +277,15 @@ function confirmAction(title, message) {
     overlay.querySelector('#confirm-close').onclick = () => { overlay.remove(); resolve(false); };
   });
 }
+
+/* =============================================
+   CERRAR MODAL AL CLICKEAR AFUERA
+   ============================================= */
+document.addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('active');
+  }
+});
 
 /* =============================================
    DARK MODE
@@ -349,9 +359,22 @@ function exportToCSV(data, columns, filename = 'reporte') {
     });
   });
 
+  // Metadatos de identificación
+  const dateStr = new Date().toLocaleString('es-VE');
+  const titleStr = filename.replace(/_/g, ' ').toUpperCase();
+  const metadata = [
+    ['"UNIVERSIDAD NACIONAL EXPERIMENTAL RÓMULO GALLEGOS"'],
+    ['"Área de Odontología - Plataforma OdontoUNERG"'],
+    ['"Reporte:"', `"${titleStr}"`],
+    ['"Generado el:"', `"${dateStr}"`],
+    [] // Fila vacía separadora
+  ];
+
   // BOM para UTF-8
   const BOM = '\uFEFF';
-  const csv = BOM + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const metadataCsv = metadata.map(r => r.join(',')).join('\n');
+  const dataCsv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const csv = BOM + metadataCsv + '\n' + dataCsv;
 
   // Descargar
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

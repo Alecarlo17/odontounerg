@@ -42,6 +42,16 @@ async function loadDashboardData() {
     ]);
     // Verificar si hay alta médica sin respuesta de reingreso
     checkPendingReingreso();
+
+    // Banner de información clínica
+    const banner = document.getElementById('clinical-info-required-banner');
+    if (banner) {
+      if (!currentUser.roleData?.consultation_reason || currentUser.roleData?.consultation_reason === 'Sin tratamiento pendiente') {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
   } catch (error) {
     console.error('Error loading dashboard data:', error);
     showToast('Error de conexión con la base de datos', 'error');
@@ -290,7 +300,7 @@ function showSection(sectionName, forceReload = false) {
   else if (sectionName === 'tratamientos') { loadTreatmentsHistory(); }
   else if (sectionName === 'historial') { loadTreatmentsHistory(); }
   else if (sectionName === 'perfil') { loadProfileData(); }
-  else if (sectionName === 'diagnostico') { loadDiagnosisForm(); }
+  else if (sectionName === 'diagnostico') { loadClinicalInfoForm(); }
   
   _loadedSections.add(sectionName);
 }
@@ -737,90 +747,101 @@ function closeModal(modalId) {
   document.getElementById(modalId).classList.remove('active');
 }
 
-/* ===== DIAGNÓSTICO ===== */
-async function loadDiagnosisForm() {
-  const res = await fetch('/api/diagnosis/' + currentUser.user.id).then(r => r.json());
-  const d = res.data;
-  const container = document.getElementById('diagnosis-container');
+/* ===== INFORMACIÓN CLÍNICA ===== */
+async function loadClinicalInfoForm() {
+  showLoading(true);
+  const userData = await getCurrentUser();
+  showLoading(false);
+  if (!userData) return;
+  const d = userData.roleData || {};
+  const container = document.getElementById('clinical-info-container');
   if (!container) return;
 
-  if (d) {
-    container.innerHTML = `
-      <div style="background:var(--bg-card);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
-          <h3>Ficha Clínica — Caso #${d.caso_numero || 1}</h3>
-          <span class="badge badge-primary">${(d.prioridad || 'media').toUpperCase()}</span>
-        </div>
-        <div style="display:grid;gap:12px;font-size:0.9rem;color:var(--text-primary)">
-          <div><strong>Problema:</strong> ${escapeHTML(d.problema_principal || '-')}</div>
-          <div><strong>Especialidad sugerida:</strong> ${escapeHTML(d.especialidad_requerida||'Pendiente de evaluación')}</div>
-          <div><strong>Síntomas:</strong> ${escapeHTML(d.sintomas||'Pendiente de evaluación clínica')}</div>
-          <div><strong>Nivel de dolor:</strong> ${d.nivel_dolor !== null ? d.nivel_dolor + '/10' : 'No especificado'}</div>
-          <div><strong>Tiempo de evolución:</strong> ${escapeHTML(d.tiempo_evolucion||'-')}</div>
-          ${d.observaciones ? `<div><strong>Observaciones:</strong> ${escapeHTML(d.observaciones)}</div>` : ''}
-          <div style="color:var(--text-muted);font-size:0.78rem;margin-top:0.5rem">Registrado: ${new Date(d.created_at).toLocaleDateString()}</div>
-        </div>
-      </div>`;
-  } else {
-    showDiagnosisCreateForm();
-  }
+  window.currentClinicalData = d;
+  
+  container.innerHTML = `
+    <div style="background:var(--bg-card,#fff);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+        <h3 style="margin:0;">📋 Resumen de tu Caso</h3>
+        <button class="btn btn-sm btn-outline" onclick="showClinicalInfoCreateForm()">Editar</button>
+      </div>
+      <div style="display:grid;gap:12px;font-size:0.95rem;color:var(--text-primary)">
+        <div><strong>Motivo de Consulta:</strong> ${escapeHTML(d.consultation_reason || 'No especificado')}</div>
+        <div><strong>Descripción del Problema:</strong> ${escapeHTML(d.descripcion_problema || 'No especificada')}</div>
+        <div><strong>Intensidad del Dolor:</strong> ${escapeHTML(d.intensidad_dolor || 'No especificada')}</div>
+        <div><strong>Antecedentes Médicos:</strong> ${escapeHTML(d.medical_history || 'Ninguno')}</div>
+      </div>
+    </div>`;
 }
 
-function showDiagnosisCreateForm() {
-  const container = document.getElementById('diagnosis-container');
+function showClinicalInfoCreateForm() {
+  const d = window.currentClinicalData || {};
+  const container = document.getElementById('clinical-info-container');
   if (!container) return;
+
   container.innerHTML = `
-    <form onsubmit="handleCreateDiagnosis(event)" style="background:var(--card-bg,#fff);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
-      <h3 style="margin-bottom:1.25rem">📋 Diagnóstico Inicial</h3>
-      <div class="form-group"><label class="form-label">Problema principal *</label>
-        <input type="text" class="form-input" id="diag-problema" placeholder="Ej: Dolor molar, caries..." required></div>
-      <div class="form-group"><label class="form-label">Motivo de consulta</label>
-        <input type="text" class="form-input" id="diag-motivo" placeholder="¿Por qué busca atención?"></div>
-      <div class="form-group"><label class="form-label">Síntomas</label>
-        <textarea class="form-textarea" id="diag-sintomas" placeholder="Describa sus síntomas..."></textarea></div>
-      <div class="form-group"><label class="form-label">Tiempo de evolución</label>
-        <input type="text" class="form-input" id="diag-tiempo" placeholder="Ej: 2 semanas, 1 mes..."></div>
-      <div class="form-group"><label class="form-label">Especialidad requerida</label>
-        <select class="form-select" id="diag-especialidad">
-          <option value="">Seleccione...</option>
-          <option>Ortodoncia</option><option>Extracción</option><option>Limpieza dental</option>
-          <option>Caries</option><option>Endodoncia</option><option>Prótesis</option>
-          <option>Periodoncia</option><option>Otro</option>
-        </select></div>
-      <div class="form-group"><label class="form-label">Nivel de dolor (1-10): <strong id="pain-val">5</strong></label>
-        <input type="range" min="1" max="10" value="5" id="diag-dolor" style="width:100%" oninput="document.getElementById('pain-val').textContent=this.value"></div>
-      <div class="form-group"><label class="form-label">Observaciones adicionales</label>
-        <textarea class="form-textarea" id="diag-obs" placeholder="Información adicional relevante..."></textarea></div>
-      <button type="submit" class="btn btn-primary btn-block">💾 Guardar Diagnóstico</button>
+    <form onsubmit="handleUpdateClinicalInfo(event)" style="background:var(--bg-card,#fff);padding:1.5rem;border-radius:16px;border:1px solid var(--border)">
+      <h3 style="margin-bottom:1.25rem">Editar Información Clínica</h3>
+      
+      <div class="form-group"><label class="form-label">Motivo de consulta *</label>
+        <select class="form-select" id="clin-motivo" required>
+          <option value="Dolor dental" ${d.consultation_reason === 'Dolor dental' ? 'selected' : ''}>Dolor dental</option>
+          <option value="Muela dañada o rota" ${d.consultation_reason === 'Muela dañada o rota' ? 'selected' : ''}>Muela dañada o rota</option>
+          <option value="Caries" ${d.consultation_reason === 'Caries' ? 'selected' : ''}>Caries</option>
+          <option value="Inflamación o infección" ${d.consultation_reason === 'Inflamación o infección' ? 'selected' : ''}>Inflamación o infección</option>
+          <option value="Sangrado de encías" ${d.consultation_reason === 'Sangrado de encías' ? 'selected' : ''}>Sangrado de encías</option>
+          <option value="Limpieza dental" ${d.consultation_reason === 'Limpieza dental' ? 'selected' : ''}>Limpieza dental</option>
+          <option value="Extracción dental" ${d.consultation_reason === 'Extracción dental' ? 'selected' : ''}>Extracción dental</option>
+          <option value="Prótesis o dentadura" ${d.consultation_reason === 'Prótesis o dentadura' ? 'selected' : ''}>Prótesis o dentadura</option>
+          <option value="Ortodoncia" ${d.consultation_reason === 'Ortodoncia' ? 'selected' : ''}>Ortodoncia</option>
+          <option value="Revisión general" ${d.consultation_reason === 'Revisión general' ? 'selected' : ''}>Revisión general</option>
+          <option value="Otro" ${!['Dolor dental', 'Muela dañada o rota', 'Caries', 'Inflamación o infección', 'Sangrado de encías', 'Limpieza dental', 'Extracción dental', 'Prótesis o dentadura', 'Ortodoncia', 'Revisión general'].includes(d.consultation_reason) ? 'selected' : ''}>Otro (${escapeHTML(d.consultation_reason || '')})</option>
+        </select>
+      </div>
+      
+      <div class="form-group"><label class="form-label">Descripción del Problema *</label>
+        <textarea class="form-textarea" id="clin-descripcion" rows="3" required>${escapeHTML(d.descripcion_problema || '')}</textarea>
+      </div>
+
+      <div class="form-group"><label class="form-label">Intensidad del Dolor *</label>
+        <select class="form-select" id="clin-dolor" required>
+          <option value="Sin dolor" ${d.intensidad_dolor === 'Sin dolor' ? 'selected' : ''}>🟢 Sin dolor</option>
+          <option value="Dolor leve" ${d.intensidad_dolor === 'Dolor leve' ? 'selected' : ''}>🟡 Dolor leve</option>
+          <option value="Dolor moderado" ${d.intensidad_dolor === 'Dolor moderado' ? 'selected' : ''}>🟠 Dolor moderado</option>
+          <option value="Dolor fuerte" ${d.intensidad_dolor === 'Dolor fuerte' ? 'selected' : ''}>🔴 Dolor fuerte</option>
+        </select>
+      </div>
+
+      <div class="form-group"><label class="form-label">Antecedentes Médicos (Texto libre)</label>
+        <textarea class="form-textarea" id="clin-antecedentes" rows="3">${escapeHTML(d.medical_history || '')}</textarea>
+      </div>
+
+      <div style="display:flex;gap:1rem;margin-top:1.5rem">
+        <button type="button" class="btn btn-outline" onclick="loadClinicalInfoForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary" style="flex:1">💾 Guardar Cambios</button>
+      </div>
     </form>`;
 }
 
-async function handleCreateDiagnosis(event) {
+async function handleUpdateClinicalInfo(event) {
   event.preventDefault();
-  const res = await fetch('/api/diagnosis/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      patientId: currentUser.user.id,
-      problemaPrincipal: document.getElementById('diag-problema')?.value,
-      motivoConsulta: document.getElementById('diag-motivo')?.value,
-      sintomas: document.getElementById('diag-sintomas')?.value,
-      tiempoEvolucion: document.getElementById('diag-tiempo')?.value,
-      especialidadRequerida: document.getElementById('diag-especialidad')?.value,
-      nivelDolor: document.getElementById('diag-dolor')?.value,
-      observaciones: document.getElementById('diag-obs')?.value
-    })
-  }).then(r => r.json());
-
-  if (res.success) {
-    if (typeof showToast === 'function') showToast('Diagnóstico registrado. Prioridad: ' + (res.prioridad || '').toUpperCase() + '. Ahora apareces en búsqueda de estudiantes.', 'success');
-    else alert('Diagnóstico registrado con éxito.');
-    const banner = document.getElementById('diagnosis-required-banner');
-    if (banner) banner.classList.add('hidden');
-    loadDiagnosisForm();
-  } else {
-    if (typeof showToast === 'function') showToast(res.message || 'Error al guardar diagnóstico', 'error');
-    else alert('Error al guardar diagnóstico');
+  showLoading(true);
+  try {
+    await updatePatientData(currentUser.user.id, {
+      consultationReason: document.getElementById('clin-motivo').value,
+      descripcionProblema: document.getElementById('clin-descripcion').value,
+      intensidadDolor: document.getElementById('clin-dolor').value,
+      medicalHistory: document.getElementById('clin-antecedentes').value
+    });
+    showLoading(false);
+    showToast('Información clínica actualizada exitosamente', 'success');
+    
+    // Recargar perfil para actualizar roleData
+    currentUser = await requireAuth();
+    loadClinicalInfoForm();
+  } catch (error) {
+    showLoading(false);
+    showToast('Error al actualizar información', 'error');
   }
 }
 

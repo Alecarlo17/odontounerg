@@ -31,10 +31,15 @@ async function getPatientById(patientId) {
         return {
           ...data,
           age: pat.age,
+          birth_date: pat.birth_date,
           p_phone: pat.phone,
           direccion: pat.direccion,
+          alt_contact_name: pat.alt_contact_name,
+          alt_contact_phone: pat.alt_contact_phone,
           medical_history: pat.medical_history,
           consultation_reason: pat.consultation_reason,
+          descripcion_problema: pat.descripcion_problema,
+          intensidad_dolor: pat.intensidad_dolor,
           accepts_requests: pat.accepts_requests,
           gender: pat.gender,
           initial_diagnosis: activeDiagnosis || null
@@ -62,11 +67,11 @@ async function getAvailablePatients(treatment = null) {
 
     const busyPatientIds = (busyRequests || []).map(r => r.patient_id);
 
-    let query = db.supabase
+      let query = db.supabase
       .from('profiles')
       .select(`
         id, full_name, email, phone, disponibilidad, role, avatar_url,
-        patients!inner(age, consultation_reason, medical_history, gender, accepts_requests),
+        patients!inner(age, consultation_reason, descripcion_problema, intensidad_dolor, medical_history, gender, accepts_requests, birth_date, alt_contact_name, alt_contact_phone),
         initial_diagnosis(especialidad_requerida, prioridad, nivel_dolor, tiempo_evolucion, problema_principal, created_at, activo)
       `)
       .eq('role', 'patient')
@@ -100,9 +105,14 @@ async function getAvailablePatients(treatment = null) {
         role: row.role,
         patients: {
           age: pat.age,
+          birth_date: pat.birth_date,
           consultation_reason: pat.consultation_reason,
+          descripcion_problema: pat.descripcion_problema,
+          intensidad_dolor: pat.intensidad_dolor,
           medical_history: pat.medical_history,
-          gender: pat.gender
+          gender: pat.gender,
+          alt_contact_name: pat.alt_contact_name,
+          alt_contact_phone: pat.alt_contact_phone
         },
         initial_diagnosis: activeDiagnosis || null
       };
@@ -118,16 +128,22 @@ async function getAvailablePatients(treatment = null) {
  */
 async function updatePatient(patientId, patientData) {
   try {
+    const updateData = {};
+    if (patientData.phone !== undefined) updateData.phone = patientData.phone;
+    if (patientData.age !== undefined) updateData.age = patientData.age;
+    if (patientData.address !== undefined || patientData.direccion !== undefined) updateData.direccion = patientData.address || patientData.direccion;
+    if (patientData.medicalHistory !== undefined) updateData.medical_history = patientData.medicalHistory;
+    if (patientData.consultationReason !== undefined) updateData.consultation_reason = patientData.consultationReason;
+    if (patientData.descripcionProblema !== undefined) updateData.descripcion_problema = patientData.descripcionProblema;
+    if (patientData.intensidadDolor !== undefined) updateData.intensidad_dolor = patientData.intensidadDolor;
+    if (patientData.birthDate !== undefined) updateData.birth_date = patientData.birthDate;
+    if (patientData.altContactName !== undefined) updateData.alt_contact_name = patientData.altContactName;
+    if (patientData.altContactPhone !== undefined) updateData.alt_contact_phone = patientData.altContactPhone;
+    if (patientData.acceptsRequests !== undefined) updateData.accepts_requests = patientData.acceptsRequests !== false;
+
     const { error } = await db.supabase
       .from('patients')
-      .update({
-        phone: patientData.phone,
-        age: patientData.age,
-        direccion: patientData.address || patientData.direccion,
-        medical_history: patientData.medicalHistory,
-        consultation_reason: patientData.consultationReason,
-        accepts_requests: patientData.acceptsRequests !== false
-      })
+      .update(updateData)
       .eq('id', patientId);
 
     if (error) throw error;

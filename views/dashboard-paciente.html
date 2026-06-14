@@ -33,12 +33,10 @@
           <a class="sidebar-link active" onclick="showSection('inicio')">
             <i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio
           </a>
-          <a class="sidebar-link" onclick="showSection('solicitudes')">
-            <i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes
-            <span class="sidebar-link-badge hidden" id="notif-badge">0</span>
-          </a>
-          <a class="sidebar-link" onclick="showSection('diagnostico')">
-            <i data-lucide="stethoscope" class="sidebar-link-icon"></i> Diagnóstico
+
+          <a href="#" class="sidebar-link" onclick="showSection('diagnostico')">
+            <i data-lucide="file-text"></i>
+            <span>Mi Información Clínica</span>
           </a>
         </div>
         <div class="sidebar-section">
@@ -111,11 +109,11 @@
 
         <!-- ===== INICIO ===== -->
         <section id="section-inicio">
-          <!-- Banner diagnóstico requerido -->
-          <div id="diagnosis-required-banner" class="hidden" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;margin-bottom:1.25rem;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;">
+          <!-- Banner clínico requerido -->
+          <div id="clinical-info-required-banner" class="hidden" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;margin-bottom:1.25rem;background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:#fff;">
             <span style="font-size:1.8rem;flex-shrink:0">📋</span>
             <div style="flex:1">
-              <strong style="display:block;margin-bottom:2px">Completa tu diagnóstico inicial</strong>
+              <strong style="display:block;margin-bottom:2px">Completa tu información clínica</strong>
               <small style="opacity:0.85">Para aparecer en la búsqueda de estudiantes, debes registrar tu motivo de consulta.</small>
             </div>
             <button class="btn btn-sm" style="background:rgba(255,255,255,0.25);color:#fff;border:1px solid rgba(255,255,255,0.4)" onclick="showSection('diagnostico')">Completar ahora →</button>
@@ -153,13 +151,18 @@
           </div>
         </section>
 
-        <!-- ===== DIAGNÓSTICO INICIAL ===== -->
+        <!-- ===== INFORMACIÓN CLÍNICA ===== -->
         <section id="section-diagnostico" class="hidden">
           <div style="max-width:680px;margin:0 auto">
-            <div id="diagnosis-container">
-              <div class="empty-state">
-                <div class="empty-state-icon"><i data-lucide="stethoscope"></i></div>
-                <p class="empty-state-title">Cargando diagnóstico...</p>
+            <div class="card">
+              <div class="card-header">
+                <span class="card-title"><i data-lucide="file-text"></i> Mi Información Clínica</span>
+              </div>
+              <div class="card-body" id="clinical-info-container">
+                <div class="empty-state">
+                  <div class="empty-state-icon"><i data-lucide="file-text"></i></div>
+                  <p class="empty-state-title">Cargando información...</p>
+                </div>
               </div>
             </div>
           </div>

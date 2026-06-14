@@ -3,56 +3,134 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Plataforma Odontol贸gica UNERG - Recuperar contrase帽a">
   <link rel="icon" type="image/png" href="/assets/favicon.png">
-  <title>Recuperar Contrase馻 - OdontoUNERG</title>
+  <title>Recuperar Contrase帽a - OdontoUNERG</title>
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/auth.css">
 </head>
 <body>
+
   <div class="auth-wrapper">
-    <div class="auth-brand">
+    <!-- Panel izquierdo: Branding (Copiado de login.html) -->
+    <div class="auth-brand" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.7)), url('/assets/1.jpg') center/cover;">
       <div class="auth-brand-logo">
-        <img src="/assets/logo-principal.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
+        <img src="/assets/Unerg-1.png" alt="UNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px; mix-blend-mode: screen; filter: brightness(0) invert(1);">
+        <img src="/assets/logo%202.png" alt="OdontoUNERG Logo" style="height: 64px; width: auto; margin-bottom: 10px;">
       </div>
-      <h1 class="auth-brand-title">Recuperar Contrase馻</h1>
-      <p class="auth-brand-subtitle">Ingrese su correo electr髇ico y le enviaremos un enlace para restablecer su contrase馻.</p>
+      <h1 class="auth-brand-title">Plataforma Odontol贸gica Universitaria</h1>
+      <p class="auth-brand-subtitle">
+        Conectamos estudiantes de odontolog铆a con pacientes que necesitan atenci贸n dental. 
+        Una soluci贸n digital para la Universidad Nacional Experimental R贸mulo Gallegos.
+      </p>
+      <div class="auth-brand-features">
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="search" style="width:18px;height:18px;"></i></div>
+          <span>B煤squeda de pacientes por tratamiento</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="calendar" style="width:18px;height:18px;"></i></div>
+          <span>Gesti贸n de citas odontol贸gicas</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="message-circle" style="width:18px;height:18px;"></i></div>
+          <span>Chat en tiempo real</span>
+        </div>
+        <div class="auth-feature">
+          <div class="auth-feature-icon"><i data-lucide="clipboard-list" style="width:18px;height:18px;"></i></div>
+          <span>Historial de tratamientos</span>
+        </div>
+      </div>
     </div>
+
+    <!-- Panel derecho: Formulario de Recuperaci贸n -->
     <div class="auth-form-panel">
       <div class="auth-form-container">
         <div class="auth-form-header">
-          <h2>Recuperar Contrase馻</h2>
+          <h2>Recuperar Contrase帽a</h2>
           <p>Ingrese el correo asociado a su cuenta</p>
         </div>
-        <form onsubmit="handleRecover(event)">
+
+        <form id="recover-form" onsubmit="handleRecover(event)">
           <div class="form-group">
-            <label class="form-label" for="recover-email">Correo Electr髇ico</label>
+            <label class="form-label" for="recover-email">Correo Electr贸nico</label>
             <div class="input-with-icon">
               <span class="input-icon"><i data-lucide="mail" style="width:18px;height:18px;"></i></span>
               <input type="email" id="recover-email" class="form-input" placeholder="correo@ejemplo.com" required>
             </div>
           </div>
-          <button type="submit" class="btn btn-primary btn-block btn-lg">Enviar Enlace</button>
+          <button type="submit" class="btn btn-primary btn-block btn-lg" style="margin-top: 1.5rem;">
+            Enviar Enlace
+          </button>
         </form>
-        <div class="auth-footer">
-          <p><a href="/login" class="auth-link">? Volver al inicio de sesi髇</a></p>
+
+        <form id="update-password-form" class="hidden" onsubmit="handleUpdatePassword(event)">
+          <div class="form-group">
+            <label class="form-label" for="new-password">Nueva Contrase帽a</label>
+            <div class="input-with-icon">
+              <span class="input-icon"><i data-lucide="lock" style="width:18px;height:18px;"></i></span>
+              <input type="password" id="new-password" class="form-input" placeholder="Min. 6 caracteres" required minlength="6">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success btn-block btn-lg" style="margin-top: 1.5rem;">
+            Actualizar Contrase帽a
+          </button>
+        </form>
+
+        <div class="auth-footer" style="margin-top: 2rem;">
+          <a href="/login" class="auth-link" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+            <i data-lucide="arrow-left" style="width:18px;height:18px;"></i> Volver al inicio de sesi贸n
+          </a>
+        </div>
+        
+        <div class="auth-footer" style="margin-top: 3rem;">
+          <p style="font-size: 0.8rem; color: var(--text-muted);">
+            Universidad Nacional Experimental R贸mulo Gallegos<br>
+            Facultad de Odontolog铆a
+          </p>
         </div>
       </div>
     </div>
   </div>
+
   <script src="/js/libs/lucide.js"></script>
   <script src="/js/libs/supabase-js.js"></script>
   <script src="/js/supabase-config.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/auth.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => { lucide.createIcons(); });
+    document.addEventListener('DOMContentLoaded', () => { 
+      lucide.createIcons(); 
+      
+      // Check if we are in recovery mode
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          document.getElementById('recover-form').classList.add('hidden');
+          document.getElementById('update-password-form').classList.remove('hidden');
+          document.querySelector('.auth-form-header h2').textContent = 'Nueva Contrase帽a';
+          document.querySelector('.auth-form-header p').textContent = 'Ingrese su nueva contrase帽a';
+        }
+      });
+    });
+
     async function handleRecover(event) {
       event.preventDefault();
       const email = document.getElementById('recover-email').value;
       await recoverPassword(email);
     }
+
+    async function handleUpdatePassword(event) {
+      event.preventDefault();
+      const newPassword = document.getElementById('new-password').value;
+      try {
+        const { error } = await supabase.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        showToast('Contrase帽a actualizada correctamente. Redirigiendo...', 'success');
+        setTimeout(() => window.location.href = '/login', 2000);
+      } catch(e) {
+        showToast(e.message || 'Error al actualizar la contrase帽a', 'error');
+      }
+    }
   </script>
 </body>
 </html>
-
-
