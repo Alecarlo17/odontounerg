@@ -799,9 +799,9 @@ function showClinicalInfoCreateForm() {
           <option value="Limpieza dental" ${d.consultation_reason === 'Limpieza dental' ? 'selected' : ''}>Limpieza dental</option>
           <option value="Extracción dental" ${d.consultation_reason === 'Extracción dental' ? 'selected' : ''}>Extracción dental</option>
           <option value="Prótesis o dentadura" ${d.consultation_reason === 'Prótesis o dentadura' ? 'selected' : ''}>Prótesis o dentadura</option>
-          <option value="Ortodoncia" ${d.consultation_reason === 'Ortodoncia' ? 'selected' : ''}>Ortodoncia</option>
+          <option value="Odontopediatría" ${d.consultation_reason === 'Odontopediatría' ? 'selected' : ''}>Odontopediatría</option>
           <option value="Revisión general" ${d.consultation_reason === 'Revisión general' ? 'selected' : ''}>Revisión general</option>
-          <option value="Otro" ${!['Dolor dental', 'Muela dañada o rota', 'Caries', 'Inflamación o infección', 'Sangrado de encías', 'Limpieza dental', 'Extracción dental', 'Prótesis o dentadura', 'Ortodoncia', 'Revisión general'].includes(d.consultation_reason) ? 'selected' : ''}>Otro (${escapeHTML(d.consultation_reason || '')})</option>
+          <option value="Otro" ${!['Dolor dental', 'Muela dañada o rota', 'Caries', 'Inflamación o infección', 'Sangrado de encías', 'Limpieza dental', 'Extracción dental', 'Prótesis o dentadura', 'Odontopediatría', 'Revisión general'].includes(d.consultation_reason) ? 'selected' : ''}>Otro (${escapeHTML(d.consultation_reason || '')})</option>
         </select>
       </div>
       
