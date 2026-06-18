@@ -146,6 +146,18 @@
               <span class="search-icon"><i data-lucide="search"></i></span>
               <input type="text" class="form-input" id="search-patients" placeholder="Buscar por nombre..." oninput="debouncedFilter()">
             </div>
+            
+            <select class="filter-select" id="filter-treatment" onchange="filterPatients()">
+              <option value="all">Motivo de consulta: Todos</option>
+              <option value="Caries">Caries</option>
+              <option value="Extracción">Extracción</option>
+              <option value="Limpieza">Limpieza</option>
+              <option value="Ortodoncia">Ortodoncia</option>
+              <option value="Endodoncia">Endodoncia</option>
+              <option value="Prótesis">Prótesis</option>
+              <option value="Revisión General">Revisión General</option>
+              <option value="Otro">Otro</option>
+            </select>
 
             <select class="filter-select" id="filter-sexo" onchange="filterPatients()">
               <option value="">Cualquier sexo</option>

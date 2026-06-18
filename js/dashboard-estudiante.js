@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
  * Configurar sidebar con datos del usuario
  */
 function setupSidebar() {
-  const name = currentUser.profile?.full_name || 'Estudiante';
+  const name = currentUser.profile?.full_name ? formatShortName(currentUser.profile.full_name) : 'Estudiante';
   document.getElementById('sidebar-name').textContent = name;
   document.getElementById('sidebar-avatar').textContent = getInitials(name);
 }
@@ -144,7 +144,7 @@ async function loadRecentRequests() {
 
   container.innerHTML = recent.map(req => {
     const statusInfo = getStatusInfo(req.status);
-    const patientName = req.patient?.full_name || 'Paciente';
+    const patientName = req.patient?.full_name ? formatShortName(req.patient.full_name) : 'Paciente';
     return `
       <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);">
         <span class="avatar avatar-sm avatar-placeholder">${getInitials(patientName)}</span>
@@ -262,10 +262,12 @@ function showSection(sectionName, forceReload = false) {
  * Cargar pacientes disponibles
  */
 async function loadPatients() {
-  const filter = document.getElementById('filter-treatment')?.value || 'all';
-  allPatients = await getAvailablePatients(filter === 'all' ? null : filter);
+  // Solo cargamos del backend una vez o si forzamos
+  showLoading(true);
+  allPatients = await getAvailablePatients(null);
+  showLoading(false);
 
-  renderPatients(allPatients);
+  filterPatients();
 }
 
 /**
@@ -275,9 +277,16 @@ function filterPatients() {
   const searchTerm = document.getElementById('search-patients').value.toLowerCase();
   const sexo = document.getElementById('filter-sexo')?.value;
   const orden = document.getElementById('filter-orden')?.value;
+  const treatment = document.getElementById('filter-treatment')?.value || 'all';
 
   let filtered = allPatients;
 
+  // Filtro por motivo de consulta (priorizado)
+  if (treatment !== 'all' && treatment !== '') {
+    filtered = filtered.filter(p => p.patients?.consultation_reason === treatment);
+  }
+
+  // Filtro por búsqueda
   if (searchTerm) {
     filtered = filtered.filter(p => 
       p.full_name?.toLowerCase().includes(searchTerm) ||
@@ -285,13 +294,14 @@ function filterPatients() {
     );
   }
 
+  // Filtro por sexo
   if (sexo && sexo !== 'all' && sexo !== '') {
     filtered = filtered.filter(p => p.patients?.gender === sexo);
   }
 
   // Ordenamiento
   if (orden === 'fecha') {
-    filtered.sort((a, b) => new Date(b.patients?.birth_date || 0) - new Date(a.patients?.birth_date || 0)); // sorting by birth date just as an example, but perhaps it's better by registration date. Wait, we don't have registration date in the payload. Let's just keep as is or sort by id.
+    filtered.sort((a, b) => new Date(b.patients?.birth_date || 0) - new Date(a.patients?.birth_date || 0));
   } else if (orden === 'edad') {
     filtered.sort((a, b) => {
       const ageA = a.patients?.birth_date ? calculateAge(a.patients.birth_date) : (a.patients?.age || 0);
@@ -329,7 +339,7 @@ function renderPatients(patients) {
             ? `<img src="${p.avatar_url}" class="patient-card-avatar" alt="${p.full_name}">`
             : `<span class="avatar avatar-placeholder" style="width:48px;height:48px;font-size:1rem;">${getInitials(p.full_name)}</span>`}
           <div>
-            <div class="patient-card-name">${escapeHTML(p.full_name)}</div>
+            <div class="patient-card-name">${escapeHTML(formatShortName(p.full_name))}</div>
             <div class="patient-card-meta">${age} años ${patient?.gender ? '· ' + patient.gender : ''}</div>
           </div>
         </div>
@@ -344,7 +354,7 @@ function renderPatients(patients) {
           ${p.phone ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem">📞 ${escapeHTML(p.phone)}</p>` : ''}
         </div>
         <div class="patient-card-footer">
-          <button class="btn btn-primary btn-sm" onclick="openSolicitudModal('${p.id}', '${escapeHTML(p.full_name)}', '${escapeHTML(patient?.consultation_reason || '')}')">Enviar Solicitud</button>
+          <button class="btn btn-primary btn-sm" onclick="openSolicitudModal('${p.id}', '${escapeHTML(formatShortName(p.full_name))}', '${escapeHTML(patient?.consultation_reason || '')}')">Enviar Solicitud</button>
           <button class="btn btn-outline btn-sm" onclick="viewPatientProfile('${p.id}')">Ver Perfil</button>
         </div>
       </div>
@@ -399,7 +409,7 @@ async function loadStudentRequestsList(status = null) {
 
   container.innerHTML = requests.map(req => {
     const statusInfo = getStatusInfo(req.status);
-    const name = req.patient?.full_name || 'Paciente';
+    const name = req.patient?.full_name ? formatShortName(req.patient.full_name) : 'Paciente';
     let messageStr = req.message || 'Sin mensaje';
     if (messageStr.startsWith('[FromStudent]')) messageStr = messageStr.replace('[FromStudent]', '').trim();
 
@@ -542,7 +552,7 @@ async function openNewAppointmentModal() {
   const requests = allReqs.filter(r => r.status === 'accepted' || r.status === 'active');
   const select = document.getElementById('cita-request');
   select.innerHTML = '<option value="">Seleccione un paciente</option>' +
-    requests.map(r => `<option value="${r.id}">${r.patient?.full_name || 'Paciente'}</option>`).join('');
+    requests.map(r => `<option value="${r.id}">${r.patient?.full_name ? formatShortName(r.patient.full_name) : 'Paciente'}</option>`).join('');
 
   // Set fecha mínima a hoy
   document.getElementById('cita-fecha').min = new Date().toISOString().split('T')[0];
@@ -609,12 +619,12 @@ async function loadChatConversations() {
   }
 
   container.innerHTML = conversations.map(c => `
-    <div class="chat-item ${currentConversationId === c.conversationId ? 'active' : ''}" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(c.otherUser?.full_name || 'Usuario')}')">
+    <div class="chat-item ${currentConversationId === c.conversationId ? 'active' : ''}" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}')">
       ${c.otherUser?.avatar_url 
-        ? `<img src="${c.otherUser.avatar_url}" class="chat-item-avatar" alt="">`
+        ? `<img src="${c.otherUser.avatar_url}" class="chat-item-avatar" alt="${escapeHTML(formatShortName(c.otherUser.full_name))}">`
         : `<div class="chat-item-avatar-placeholder">${getInitials(c.otherUser?.full_name)}</div>`}
       <div class="chat-item-info">
-        <div class="chat-item-name">${escapeHTML(c.otherUser?.full_name || 'Usuario')}</div>
+        <div class="chat-item-name">${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}</div>
         <div class="chat-item-last">${c.lastMessage ? escapeHTML(c.lastMessage.content) : 'Sin mensajes'}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem;">
@@ -752,7 +762,7 @@ async function loadTreatmentsHistory() {
               en_proceso: { text: 'En proceso', class: 'badge-primary' },
               finalizado: { text: 'Finalizado', class: 'badge-success' }
             }[t.estado] || { text: t.estado, class: 'badge-gray' };
-            const patName = t.patient?.full_name || 'Paciente';
+            const patName = t.patient?.full_name ? formatShortName(t.patient.full_name) : 'Paciente';
             return `
               <tr>
                 <td>
@@ -891,7 +901,7 @@ async function loadProfileData() {
 
   const { profile, roleData } = userData;
 
-  document.getElementById('profile-name-display').textContent = profile.full_name;
+  document.getElementById('profile-name-display').textContent = formatShortName(profile.full_name);
   document.getElementById('profile-email-display').textContent = profile.email;
   document.getElementById('profile-avatar').textContent = getInitials(profile.full_name);
 
@@ -968,7 +978,7 @@ async function viewPatientProfile(patientId) {
     
     if (json.success && json.data) {
       const p = json.data;
-      document.getElementById('perfil-paciente-nombre').textContent = p.full_name;
+      document.getElementById('perfil-paciente-nombre').textContent = formatShortName(p.full_name);
       document.getElementById('perfil-paciente-avatar').innerHTML = 
         `<div class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(p.full_name)}</div>`;
       
@@ -998,16 +1008,7 @@ async function viewPatientProfile(patientId) {
       
       document.getElementById('current-perfil-paciente-id').value = patientId;
 
-      try {
-        const resResp = await fetch(`/api/ratings/patient/${patientId}/responsibility`);
-        const jsonResp = await resResp.json();
-        if (jsonResp.success) {
-          const badgeHtml = jsonResp.status === 'No evaluado' 
-            ? `<span class="badge" style="background:var(--gray-300);color:var(--text);">${jsonResp.status}</span>`
-            : `<span class="badge ${jsonResp.status === 'Responsable' ? 'badge-success' : 'badge-error'}">${jsonResp.status}</span>`;
-          document.getElementById('perfil-paciente-badges').innerHTML += ' ' + badgeHtml;
-        }
-      } catch(e) {}
+      // Evaluación visual removida según solicitud
       
       document.getElementById('modal-perfil-paciente').classList.add('active');
     } else {

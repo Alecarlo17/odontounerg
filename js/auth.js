@@ -136,8 +136,16 @@ async function registerStudent(formData) {
     showToast('Correo electrónico inválido', 'error');
     return;
   }
-  if (!isValidCedula(formData.cedula)) {
-    showToast('La cédula debe tener entre 7 y 8 dígitos', 'error');
+  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(formData.fullName)) {
+    showToast('El nombre solo debe contener letras', 'error');
+    return;
+  }
+  if (!/^\d{6,10}$/.test(formData.cedula)) {
+    showToast('La cédula debe tener entre 6 y 10 dígitos numéricos', 'error');
+    return;
+  }
+  if (formData.phone && !/^\d{11}$/.test(formData.phone)) {
+    showToast('El teléfono debe tener 11 dígitos numéricos', 'error');
     return;
   }
   if (!isValidPassword(formData.password)) {
@@ -151,59 +159,27 @@ async function registerStudent(formData) {
 
   showLoading(true);
   try {
-    const client = window.supabaseClient || supabase;
-    const { data, error } = await client.auth.signUp({
-      email: formData.email.trim(),
-      password: formData.password,
-      options: { data: { full_name: formData.fullName, role: 'student' } }
+    const res = await fetch('/api/auth/register-student', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: formData.fullName,
+        email: formData.email.trim(),
+        password: formData.password,
+        cedula: formData.cedula,
+        phone: formData.phone || null,
+        academicYear: formData.academicYear || null,
+        section: formData.section || null,
+        age: formData.age || null,
+        gender: formData.gender || null,
+        treatments: formData.treatments || []
+      })
     });
 
-    if (error) {
+    const json = await res.json();
+    if (!json.success) {
       showLoading(false);
-      let translatedMsg = error.message;
-      if (translatedMsg.includes('Password should contain')) {
-        translatedMsg = 'La contraseña debe tener al menos una letra minúscula, una mayúscula, un número y un carácter especial (!@#$%^& etc).';
-      } else if (translatedMsg.includes('User already registered')) {
-        translatedMsg = 'El correo ya está en uso. Intente iniciar sesión o use otro correo.';
-      } else if (translatedMsg.includes('Password should be at least')) {
-        translatedMsg = 'La contraseña debe tener al menos 8 caracteres.';
-      }
-      showToast('Error en registro: ' + translatedMsg, 'error');
-      alert('Atención: No se pudo registrar.\n\nRazón: ' + translatedMsg);
-      return;
-    }
-    
-    const finalId = data.user.id;
-
-    const { error: profileError } = await client.from('profiles').upsert({
-      id: finalId,
-      full_name: formData.fullName,
-      email: formData.email.trim(),
-      phone: formData.phone || null,
-      role: 'student',
-      disponibilidad: 'disponible',
-      updated_at: new Date().toISOString()
-    });
-
-    if (profileError) {
-      showLoading(false);
-      alert('Error guardando perfil: ' + profileError.message);
-      return;
-    }
-
-    const { error: studentError } = await client.from('students').upsert({
-      id: finalId,
-      student_id_card: formData.cedula,
-      academic_year: formData.academicYear || null,
-      section: formData.section || null,
-      age: formData.age || null,
-      gender: formData.gender || null,
-      treatments_needed: formData.treatments || []
-    });
-
-    if (studentError) {
-      showLoading(false);
-      alert('Error guardando datos de estudiante: ' + studentError.message);
+      showToast('Error: ' + json.message, 'error');
       return;
     }
 
@@ -236,8 +212,16 @@ async function registerPatient(formData) {
     showToast('Correo electrónico inválido', 'error');
     return;
   }
-  if (!isValidCedula(formData.cedula)) {
-    showToast('La cédula debe tener entre 7 y 8 dígitos', 'error');
+  if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(formData.fullName)) {
+    showToast('El nombre solo debe contener letras', 'error');
+    return;
+  }
+  if (!/^\d{6,10}$/.test(formData.cedula)) {
+    showToast('La cédula debe tener entre 6 y 10 dígitos numéricos', 'error');
+    return;
+  }
+  if (formData.phone && !/^\d{11}$/.test(formData.phone)) {
+    showToast('El teléfono debe tener 11 dígitos numéricos', 'error');
     return;
   }
   if (!isValidPassword(formData.password)) {
@@ -251,65 +235,31 @@ async function registerPatient(formData) {
 
   showLoading(true);
   try {
-    const client = window.supabaseClient || supabase;
-    const { data, error } = await client.auth.signUp({
-      email: formData.email.trim(),
-      password: formData.password,
-      options: { data: { full_name: formData.fullName, role: 'patient' } }
+    const res = await fetch('/api/auth/register-patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fullName: formData.fullName,
+        email: formData.email.trim(),
+        password: formData.password,
+        cedula: formData.cedula,
+        phone: formData.phone || null,
+        direccion: formData.direccion || null,
+        birthDate: formData.birthDate || null,
+        gender: formData.gender || null,
+        altContactName: formData.altContactName || null,
+        altContactPhone: formData.altContactPhone || null,
+        medicalHistory: formData.medicalHistory || null,
+        consultationReason: formData.consultationReason || null,
+        descripcionProblema: formData.descripcionProblema || null,
+        intensidadDolor: formData.intensidadDolor || null
+      })
     });
 
-    if (error) {
+    const json = await res.json();
+    if (!json.success) {
       showLoading(false);
-      let translatedMsg = error.message;
-      if (translatedMsg.includes('Password should contain')) {
-        translatedMsg = 'La contraseña debe tener al menos una letra minúscula, una mayúscula, un número y un carácter especial (!@#$%^& etc).';
-      } else if (translatedMsg.includes('User already registered')) {
-        translatedMsg = 'El correo ya está en uso. Intente iniciar sesión o use otro correo.';
-      } else if (translatedMsg.includes('Password should be at least')) {
-        translatedMsg = 'La contraseña debe tener al menos 8 caracteres.';
-      }
-      showToast('Error en registro: ' + translatedMsg, 'error');
-      alert('Atención: No se pudo registrar.\n\nRazón: ' + translatedMsg);
-      return;
-    }
-    
-    const finalId = data.user.id;
-
-    const { error: profileError } = await client.from('profiles').upsert({
-      id: finalId,
-      full_name: formData.fullName,
-      email: formData.email.trim(),
-      role: 'patient',
-      disponibilidad: 'disponible',
-      phone: formData.phone || null,
-      updated_at: new Date().toISOString()
-    });
-
-    if (profileError) {
-      showLoading(false);
-      alert('Error guardando perfil de paciente: ' + profileError.message);
-      return;
-    }
-
-    const { error: patientError } = await client.from('patients').upsert({
-      id: finalId,
-      cedula: formData.cedula,
-      phone: formData.phone || null,
-      direccion: formData.direccion || null,
-      birth_date: formData.birthDate || null,
-      gender: formData.gender || null,
-      alt_contact_name: formData.altContactName || null,
-      alt_contact_phone: formData.altContactPhone || null,
-      medical_history: formData.medicalHistory || null,
-      consultation_reason: formData.consultationReason || null,
-      descripcion_problema: formData.descripcionProblema || null,
-      intensidad_dolor: formData.intensidadDolor || null,
-      accepts_requests: true
-    });
-
-    if (patientError) {
-      showLoading(false);
-      alert('Error guardando datos de paciente: ' + patientError.message);
+      showToast('Error: ' + json.message, 'error');
       return;
     }
 

@@ -8,12 +8,24 @@ const RequestsModel = require('../models/requests');
 const RatingsModel = require('../models/ratings');
 const db = require('../config/database');
 
+const nameRegex = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/;
+const phoneRegex = /^\d{11}$/;
+
 async function updateProfile(req, res) {
   const { userId } = req.params;
   const { fullName, phone, disponibilidad } = req.body;
+
+  if (fullName && !nameRegex.test(fullName)) {
+    return res.status(400).json({ success: false, message: 'El nombre solo debe contener letras, espacios, tildes y la letra ñ' });
+  }
+
+  if (phone && !phoneRegex.test(phone)) {
+    return res.status(400).json({ success: false, message: 'El teléfono debe tener exactamente 11 dígitos y contener solo números' });
+  }
+
   const success = await UsersModel.updateUserProfile(userId, { fullName, phone, disponibilidad });
   if (success) return res.json({ success: true });
-  return res.status(500).json({ success: false });
+  return res.status(500).json({ success: false, message: 'Error interno del servidor al actualizar perfil' });
 }
 
 async function updateStudentData(req, res) {

@@ -66,12 +66,16 @@ async function acceptRequest(req, res) {
 
   const { data: requestRow } = await db.supabase
     .from('requests')
-    .select('student_id, patient_id')
+    .select('student_id, patient_id, status')
     .eq('id', id)
     .maybeSingle();
 
   if (!requestRow) {
     return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+  }
+
+  if (requestRow.status !== 'pending') {
+    return res.status(400).json({ success: false, message: 'Solo se pueden aceptar solicitudes pendientes' });
   }
 
   // Validar si el paciente ya tiene un estudiante asignado
@@ -128,19 +132,26 @@ async function acceptRequest(req, res) {
  */
 async function rejectRequest(req, res) {
   const { id } = req.params;
+
+  const { data: requestRow } = await db.supabase
+    .from('requests')
+    .select('student_id, patient_id, status')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!requestRow) {
+    return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+  }
+
+  if (requestRow.status !== 'pending') {
+    return res.status(400).json({ success: false, message: 'Solo se pueden rechazar solicitudes pendientes' });
+  }
+
   const result = await RequestsModel.updateRequestStatus(id, 'rejected');
 
   if (result === true || result.success) {
-    const { data: requestRow } = await db.supabase
-      .from('requests')
-      .select('student_id, patient_id')
-      .eq('id', id)
-      .maybeSingle();
-
-    if (requestRow) {
-      await sendNotification(requestRow.student_id, 'rechazada', 'Solicitud Rechazada', 'Un paciente ha rechazado tu solicitud.', requestRow.patient_id);
-      await logActivity(requestRow.patient_id, 'Paciente', 'Solicitud rechazada', 'Solicitudes', `Solicitud del estudiante ${requestRow.student_id} rechazada`);
-    }
+    await sendNotification(requestRow.student_id, 'rechazada', 'Solicitud Rechazada', 'Un paciente ha rechazado tu solicitud.', requestRow.patient_id);
+    await logActivity(requestRow.patient_id, 'Paciente', 'Solicitud rechazada', 'Solicitudes', `Solicitud del estudiante ${requestRow.student_id} rechazada`);
   }
 
   return res.json(result === true ? { success: true } : result);

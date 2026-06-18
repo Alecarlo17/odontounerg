@@ -63,7 +63,7 @@ async function getAvailablePatients(treatment = null) {
     const { data: busyRequests } = await db.supabase
       .from('requests')
       .select('patient_id')
-      .in('status', ['accepted', 'active']);
+      .in('status', ['accepted', 'active', 'in_treatment']);
 
     const busyPatientIds = (busyRequests || []).map(r => r.patient_id);
 
@@ -75,6 +75,7 @@ async function getAvailablePatients(treatment = null) {
         initial_diagnosis(especialidad_requerida, prioridad, nivel_dolor, tiempo_evolucion, problema_principal, created_at, activo)
       `)
       .eq('role', 'patient')
+      .eq('disponibilidad', 'disponible')
       .eq('patients.accepts_requests', true);
 
     if (busyPatientIds.length > 0) {

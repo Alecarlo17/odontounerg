@@ -271,7 +271,7 @@ function renderUsersTable(users) {
           <tr>
             <td style="display:flex;align-items:center;gap:0.5rem">
               <span class="avatar avatar-sm avatar-placeholder">${getInitials(u.full_name)}</span>
-              ${escapeHTML(u.full_name || '-')}
+              ${escapeHTML(formatShortName(u.full_name) || '-')}
             </td>
             <td>${escapeHTML(u.email)}</td>
             <td><span class="badge badge-primary">${roleLabels[u.role] || u.role}</span></td>
@@ -297,7 +297,7 @@ async function loadStudentsTable() {
         <thead><tr><th>Nombre</th><th>Cédula</th><th>Sección</th><th>Año</th><th>Estado</th></tr></thead>
         <tbody>${data.map(s => `
           <tr>
-            <td>${escapeHTML(s.full_name)}</td>
+            <td>${escapeHTML(formatShortName(s.full_name))}</td>
             <td>${escapeHTML(s.students?.student_id_card || '-')}</td>
             <td>${escapeHTML(s.students?.section || '-')}</td>
             <td>${escapeHTML(s.students?.academic_year || '-')}</td>
@@ -321,7 +321,7 @@ async function loadPatientsTable() {
           const age = p.patients?.birth_date ? calculateAge(p.patients.birth_date) : (p.patients?.age || '-');
           return `
           <tr>
-            <td>${escapeHTML(p.full_name)}</td>
+            <td>${escapeHTML(formatShortName(p.full_name))}</td>
             <td>${age}</td>
             <td>${p.phone || p.patients?.phone || '-'}</td>
             <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
@@ -344,8 +344,8 @@ async function loadAllRequests() {
         <tbody>${data.map(r => {
           const si = getStatusInfo(r.status);
           return `<tr>
-            <td>${escapeHTML(r.student?.full_name || '-')}</td>
-            <td>${escapeHTML(r.patient?.full_name || '-')}</td>
+            <td>${escapeHTML(formatShortName(r.student?.full_name) || '-')}</td>
+            <td>${escapeHTML(formatShortName(r.patient?.full_name) || '-')}</td>
             <td><span class="badge ${si.class}">${si.text}</span></td>
             <td>${formatDate(r.created_at)}</td>
           </tr>`;
@@ -366,8 +366,8 @@ async function loadAllAppointments() {
         <tbody>${data.map(a => {
           const si = getStatusInfo(a.status);
           return `<tr>
-            <td>${escapeHTML(a.request?.student?.full_name || '-')}</td>
-            <td>${escapeHTML(a.request?.patient?.full_name || '-')}</td>
+            <td>${escapeHTML(formatShortName(a.request?.student?.full_name) || '-')}</td>
+            <td>${escapeHTML(formatShortName(a.request?.patient?.full_name) || '-')}</td>
             <td>${formatDateTime(a.date)}</td>
             <td><span class="badge ${si.class}">${si.text}</span></td>
           </tr>`;

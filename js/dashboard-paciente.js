@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupSidebar() {
-  const name = currentUser.profile?.full_name || 'Paciente';
+  const name = currentUser.profile?.full_name ? formatShortName(currentUser.profile.full_name) : 'Paciente';
   document.getElementById('sidebar-name').textContent = name;
   document.getElementById('sidebar-avatar').textContent = getInitials(name);
 }
@@ -106,7 +106,7 @@ async function loadCasoActivo() {
           ${requests.slice(0,3).map(req => `
             <div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0;border-bottom:1px solid var(--border);">
               <span class="avatar avatar-sm avatar-placeholder">${getInitials(req.student?.full_name || 'E')}</span>
-              <div style="flex:1"><p style="font-weight:600;font-size:0.875rem">${escapeHTML(req.student?.full_name || 'Estudiante')}</p>
+              <div style="flex:1"><p style="font-weight:600;font-size:0.875rem">${escapeHTML(formatShortName(req.student?.full_name) || 'Estudiante')}</p>
               <p style="font-size:0.75rem;color:var(--text-muted)">${timeAgo(req.created_at)}</p></div>
               <div style="display:flex;gap:0.35rem">
                 <button class="btn btn-success btn-sm" onclick="handleAcceptRequest('${req.id}')">Aceptar</button>
@@ -154,7 +154,7 @@ async function loadCasoActivo() {
       }
     ];
 
-    const studentName = caso.student?.full_name || 'Tu estudiante';
+    const studentName = caso.student?.full_name ? formatShortName(caso.student.full_name) : 'Tu estudiante';
     const statusBadgeColor = {
       accepted: '#3b82f6',
       active: '#10b981',
@@ -322,7 +322,7 @@ async function loadPatientRequestsList(status = null) {
 
   container.innerHTML = requests.map(req => {
     const statusInfo = getStatusInfo(req.status);
-    const name = req.student?.full_name || 'Estudiante';
+    const name = req.student?.full_name ? formatShortName(req.student.full_name) : 'Estudiante';
     let actions = '';
     let messageStr = req.message || '';
     const isFromPatient = messageStr.startsWith('[FromPatient]');
@@ -406,10 +406,10 @@ async function loadChatConversations() {
     return;
   }
   container.innerHTML = conversations.map(c => `
-    <div class="chat-item" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(c.otherUser?.full_name || '')}')">
+    <div class="chat-item" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || '')}')">
       <div class="chat-item-avatar-placeholder">${getInitials(c.otherUser?.full_name)}</div>
       <div class="chat-item-info">
-        <div class="chat-item-name">${escapeHTML(c.otherUser?.full_name || 'Usuario')}</div>
+        <div class="chat-item-name">${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}</div>
         <div class="chat-item-last">${c.lastMessage ? escapeHTML(c.lastMessage.content) : 'Sin mensajes'}</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:0.25rem">
@@ -501,7 +501,7 @@ async function loadProfileData() {
   const userData = await getCurrentUser();
   if (!userData) return;
   const { profile, roleData } = userData;
-  document.getElementById('profile-name-display').textContent = profile.full_name;
+  document.getElementById('profile-name-display').textContent = formatShortName(profile.full_name);
   document.getElementById('profile-email-display').textContent = profile.email;
   document.getElementById('profile-avatar').textContent = getInitials(profile.full_name);
   document.getElementById('prof-name').value = profile.full_name || '';
@@ -677,7 +677,7 @@ async function viewStudentProfile(studentId) {
     avatarContainer.innerHTML = `<span class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(s.full_name)}</span>`;
   }
 
-  document.getElementById('perfil-estudiante-nombre').textContent = escapeHTML(s.full_name);
+  document.getElementById('perfil-estudiante-nombre').textContent = escapeHTML(formatShortName(s.full_name));
   
   const badgesHtml = [];
   if (student.academic_year) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.academic_year)}</span>`);

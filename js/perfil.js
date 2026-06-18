@@ -13,11 +13,11 @@ async function updateProfile(userId, profileData) {
       body: JSON.stringify(profileData)
     });
     const json = await res.json();
-    if (!json.success) throw new Error();
+    if (!json.success) throw new Error(json.message || 'Error desconocido al actualizar');
     showToast('Perfil actualizado correctamente', 'success');
     return true;
   } catch (e) {
-    showToast('Error al actualizar perfil', 'error');
+    showToast(e.message || 'Error al actualizar perfil', 'error');
     return false;
   }
 }
@@ -62,24 +62,44 @@ async function updatePatientData(userId, data) {
 async function uploadProfilePhoto(userId, file) {
   if (!file) return null;
   
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${userId}/avatar.${fileExt}`;
-  const client = window.supabaseClient || supabase;
+  try {
+    const compressedBlob = await compressImage(file, 800, 800, 0.8);
+    const fileExt = 'jpg'; // comprimido a jpeg
+    const fileName = `${userId}/avatar.${fileExt}`;
+    const client = window.supabaseClient || supabase;
 
-  const { error: uploadError } = await client.storage
-    .from('avatars')
-    .upload(fileName, file, { upsert: true });
+    const { error: uploadError } = await client.storage
+      .from('avatars')
+      .upload(fileName, compressedBlob, { upsert: true, contentType: 'image/jpeg' });
 
-  if (uploadError) {
-    showToast('Error al subir foto', 'error');
+    if (uploadError) {
+      showToast('Error al subir foto', 'error');
+      return null;
+    }
+
+    const { data: urlData } = client.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Guardar en la base de datos (tabla profiles)
+    const { error: dbError } = await client
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId);
+
+    if (dbError) {
+      showToast('Error al actualizar perfil con la nueva foto', 'error');
+      return null;
+    }
+
+    showToast('Foto de perfil actualizada', 'success');
+    return publicUrl;
+  } catch (err) {
+    showToast('Error al procesar la imagen', 'error');
     return null;
   }
-
-  const { data: urlData } = client.storage
-    .from('avatars')
-    .getPublicUrl(fileName);
-
-  return urlData.publicUrl;
 }
 
 /**
