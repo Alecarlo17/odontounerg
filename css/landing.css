@@ -787,4 +787,6 @@
   .steps-grid { grid-template-columns: 1fr; }
   .landing-section { padding: 2.5rem 1rem; }
   .specialty-modal { padding: 2rem 1.25rem; }
+  .logo-text { display: none !important; }
+  .institutional-logo { height: 36px !important; }
 }

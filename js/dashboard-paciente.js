@@ -43,15 +43,7 @@ async function loadDashboardData() {
     // Verificar si hay alta médica sin respuesta de reingreso
     checkPendingReingreso();
 
-    // Banner de información clínica
-    const banner = document.getElementById('clinical-info-required-banner');
-    if (banner) {
-      if (!currentUser.roleData?.consultation_reason || currentUser.roleData?.consultation_reason === 'Sin tratamiento pendiente') {
-        banner.classList.remove('hidden');
-      } else {
-        banner.classList.add('hidden');
-      }
-    }
+
   } catch (error) {
     console.error('Error loading dashboard data:', error);
     showToast('Error de conexión con la base de datos', 'error');

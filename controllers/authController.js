@@ -80,8 +80,7 @@ async function registerStudent(req, res) {
 
     const userId = authData.user.id;
 
-    // 2. Crear el perfil en profiles
-    const { error: profileError } = await db.supabase.from('profiles').insert({
+    const { error: profileError } = await db.supabase.from('profiles').upsert({
       id: userId,
       full_name: fullName,
       email: email.trim(),
@@ -93,11 +92,11 @@ async function registerStudent(req, res) {
 
     if (profileError) {
       await db.supabase.auth.admin.deleteUser(userId); // rollback
-      return res.status(500).json({ success: false, message: 'Error al crear perfil de usuario' });
+      return res.status(500).json({ success: false, message: 'Error al crear perfil de usuario: ' + profileError.message });
     }
 
     // 3. Crear el registro en students
-    const { error: studentError } = await db.supabase.from('students').insert({
+    const { error: studentError } = await db.supabase.from('students').upsert({
       id: userId,
       student_id_card: cedula,
       academic_year: academicYear || null,
@@ -108,7 +107,8 @@ async function registerStudent(req, res) {
     });
 
     if (studentError) {
-      return res.status(500).json({ success: false, message: 'Perfil creado, pero hubo un error al guardar datos de estudiante' });
+      await db.supabase.auth.admin.deleteUser(userId); // rollback
+      return res.status(500).json({ success: false, message: 'Perfil creado, pero hubo un error al guardar datos de estudiante: ' + studentError.message });
     }
 
     return res.status(200).json({ success: true, message: 'Registro exitoso' });
@@ -167,7 +167,7 @@ async function registerPatient(req, res) {
 
     const userId = authData.user.id;
 
-    const { error: profileError } = await db.supabase.from('profiles').insert({
+    const { error: profileError } = await db.supabase.from('profiles').upsert({
       id: userId,
       full_name: fullName,
       email: email.trim(),
@@ -179,10 +179,10 @@ async function registerPatient(req, res) {
 
     if (profileError) {
       await db.supabase.auth.admin.deleteUser(userId);
-      return res.status(500).json({ success: false, message: 'Error al crear perfil de usuario' });
+      return res.status(500).json({ success: false, message: 'Error al crear perfil de usuario: ' + profileError.message });
     }
 
-    const { error: patientError } = await db.supabase.from('patients').insert({
+    const { error: patientError } = await db.supabase.from('patients').upsert({
       id: userId,
       cedula: cedula,
       phone: phone || null,
@@ -199,7 +199,8 @@ async function registerPatient(req, res) {
     });
 
     if (patientError) {
-      return res.status(500).json({ success: false, message: 'Perfil creado, pero hubo un error al guardar datos de paciente' });
+      await db.supabase.auth.admin.deleteUser(userId); // rollback
+      return res.status(500).json({ success: false, message: 'Perfil creado, pero hubo un error al guardar datos de paciente: ' + patientError.message });
     }
 
     return res.status(200).json({ success: true, message: 'Registro exitoso' });
