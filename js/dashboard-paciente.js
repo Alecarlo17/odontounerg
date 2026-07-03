@@ -89,7 +89,7 @@ async function loadCasoActivo() {
       // Sin caso activo: mostrar solicitudes pendientes
       const requests = await getPatientRequests(currentUser.user.id, 'pending');
       if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="heart-pulse"></i></div><p class="empty-state-text">Sin caso activo. Complete su diagnóstico para aparecer en la búsqueda.</p></div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="heart-pulse"></i></div><p class="empty-state-text">Sin caso activo.</p></div>';
       } else {
         container.innerHTML = `
           <p style="font-size:0.9rem;font-weight:600;margin-bottom:0.75rem;">

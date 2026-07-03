@@ -17,10 +17,10 @@ async function createRequest(studentId, patientId, message = '') {
       .eq('student_id', studentId)
       .eq('patient_id', patientId)
       .in('status', ['pending', 'accepted', 'active'])
-      .maybeSingle();
+      .limit(1);
 
     if (existError) throw existError;
-    if (existing) return { success: false, message: 'Ya existe una solicitud activa con este paciente' };
+    if (existing && existing.length > 0) return { success: false, message: 'Ya existe una solicitud activa con este paciente' };
 
     const created_at = new Date().toISOString();
     const { error } = await db.supabase

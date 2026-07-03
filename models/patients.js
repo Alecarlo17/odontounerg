@@ -70,7 +70,7 @@ async function getAvailablePatients(treatment = null) {
       let query = db.supabase
       .from('profiles')
       .select(`
-        id, full_name, email, phone, disponibilidad, role, avatar_url,
+        id, full_name, email, phone, disponibilidad, role, avatar_url, created_at,
         patients!inner(age, consultation_reason, descripcion_problema, intensidad_dolor, medical_history, gender, accepts_requests, birth_date, alt_contact_name, alt_contact_phone),
         initial_diagnosis(especialidad_requerida, prioridad, nivel_dolor, tiempo_evolucion, problema_principal, created_at, activo)
       `)
@@ -104,6 +104,7 @@ async function getAvailablePatients(treatment = null) {
         avatar_url: row.avatar_url,
         disponibilidad: row.disponibilidad,
         role: row.role,
+        created_at: row.created_at,
         patients: {
           age: pat.age,
           birth_date: pat.birth_date,
@@ -164,7 +165,7 @@ async function getAllPatients() {
       .from('profiles')
       .select(`
         *,
-        patients(age, consultation_reason, medical_history, phone)
+        patients(age, birth_date, consultation_reason, medical_history, phone)
       `)
       .eq('role', 'patient')
       .order('created_at', { ascending: false });
@@ -180,6 +181,7 @@ async function getAllPatients() {
         created_at: row.created_at,
         patients: {
           age: pat.age,
+          birth_date: pat.birth_date,
           consultation_reason: pat.consultation_reason,
           medical_history: pat.medical_history,
           phone: pat.phone || row.phone

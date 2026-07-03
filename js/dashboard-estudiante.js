@@ -283,7 +283,10 @@ function filterPatients() {
 
   // Filtro por motivo de consulta (priorizado)
   if (treatment !== 'all' && treatment !== '') {
-    filtered = filtered.filter(p => p.patients?.consultation_reason === treatment);
+    filtered = filtered.filter(p => {
+      const reason = p.patients?.consultation_reason?.toLowerCase() || '';
+      return reason.includes(treatment.toLowerCase());
+    });
   }
 
   // Filtro por búsqueda
@@ -301,7 +304,8 @@ function filterPatients() {
 
   // Ordenamiento
   if (orden === 'fecha') {
-    filtered.sort((a, b) => new Date(b.patients?.birth_date || 0) - new Date(a.patients?.birth_date || 0));
+    // Ordenar por fecha de registro (más recientes primero)
+    filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   } else if (orden === 'edad') {
     filtered.sort((a, b) => {
       const ageA = a.patients?.birth_date ? calculateAge(a.patients.birth_date) : (a.patients?.age || 0);
