@@ -787,30 +787,6 @@
   .filter-select { width: 100%; }
 }
 
-/* =============================================
-   CHAT - Responsive en móvil
-   ============================================= */
-@media (max-width: 768px) {
-  /* En móvil: el chat ocupa toda la pantalla */
-  .chat-layout {
-    flex-direction: column !important;
-    height: auto !important;
-  }
-
-  /* Sidebar del chat: colapsable */
-  .chat-sidebar {
-    width: 100% !important;
-    max-height: 200px;
-    border-right: none !important;
-    border-bottom: 1px solid var(--border);
-    overflow-y: auto;
-  }
-
-  /* Panel principal del chat: altura automática */
-  .chat-main {
-    min-height: 400px;
-  }
-}
 
 /* =============================================
    DARK MODE - Dashboard
@@ -867,3 +843,17 @@ body.dark #sidebar-overlay {
 }
 
 
+.header-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background-color: var(--danger);
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  line-height: 1;
+  min-width: 16px;
+  text-align: center;
+}

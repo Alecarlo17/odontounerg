@@ -26,9 +26,29 @@ async function getStudents(req, res) {
       .eq('role', 'student')
       .order('created_at', { ascending: false });
     if (error) throw error;
+    
+    // Add stats
+    const { data: reqs } = await db.supabase
+      .from('requests')
+      .select('student_id, status')
+      .in('status', ['completed', 'abandoned']);
+      
+    const statsMap = {};
+    if (reqs) {
+      reqs.forEach(r => {
+        if (!statsMap[r.student_id]) statsMap[r.student_id] = { completed: 0, abandoned: 0 };
+        if (r.status === 'completed') statsMap[r.student_id].completed++;
+        if (r.status === 'abandoned') statsMap[r.student_id].abandoned++;
+      });
+    }
+
     const formatted = (data || []).map(d => {
       const std = Array.isArray(d.students) ? d.students[0] || {} : d.students || {};
-      return { ...d, students: { student_id_card: std.student_id_card, section: std.section, academic_year: std.academic_year } };
+      return { 
+        ...d, 
+        students: { student_id_card: std.student_id_card, section: std.section, academic_year: std.academic_year },
+        stats: statsMap[d.id] || { completed: 0, abandoned: 0 }
+      };
     });
     return res.json({ success: true, data: formatted });
   } catch(e) {
@@ -82,6 +102,17 @@ async function suspendUser(req, res) {
 
     const success = await UsersModel.suspendProfile(id, reason || 'Suspensión administrativa');
     if (!success) throw new Error('Failed to suspend user');
+    return res.json({ success: true });
+  } catch(e) {
+    return res.status(500).json({ success: false, message: e.message });
+  }
+}
+
+async function reactivateUser(req, res) {
+  try {
+    const { id } = req.params;
+    const success = await UsersModel.reactivateProfile(id);
+    if (!success) throw new Error('Failed to reactivate user');
     return res.json({ success: true });
   } catch(e) {
     return res.status(500).json({ success: false, message: e.message });
@@ -183,5 +214,5 @@ async function getAllTreatments(req, res) {
 module.exports = {
   getAllUsers, getStudents, getPatients,
   getAllRequests, getAllAppointments,
-  suspendUser, getMetrics, getReportData, getActivityLog, getAllTreatments
+  suspendUser, reactivateUser, getMetrics, getReportData, getActivityLog, getAllTreatments
 };

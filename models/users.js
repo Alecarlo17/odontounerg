@@ -59,6 +59,7 @@ async function updateUserProfile(userId, profileData) {
         full_name: profileData.fullName,
         phone: profileData.phone,
         disponibilidad: profileData.disponibilidad,
+        avatar_url: profileData.avatarUrl !== undefined ? profileData.avatarUrl : undefined,
         updated_at: updated_at
       })
       .eq('id', userId);
@@ -98,7 +99,8 @@ async function suspendProfile(userId, reason) {
       .from('profiles')
       .update({ 
         is_suspended: true,
-        suspension_reason: reason 
+        suspension_reason: reason,
+        disponibilidad: 'suspendido'
       })
       .eq('id', userId);
 
@@ -110,10 +112,33 @@ async function suspendProfile(userId, reason) {
   }
 }
 
+/**
+ * Reactivar perfil de un usuario
+ */
+async function reactivateProfile(userId) {
+  try {
+    const { error } = await db.supabase
+      .from('profiles')
+      .update({ 
+        is_suspended: false,
+        suspension_reason: null,
+        disponibilidad: 'disponible'
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error en reactivateProfile:', e);
+    return false;
+  }
+}
+
 module.exports = {
   getProfileById,
   getAllProfiles,
   updateUserProfile,
   countByRole,
-  suspendProfile
+  suspendProfile,
+  reactivateProfile
 };

@@ -32,8 +32,11 @@
           <a class="sidebar-link active" onclick="showSection('inicio')">
             <i data-lucide="layout-dashboard" class="sidebar-link-icon"></i> Inicio
           </a>
+          <a class="sidebar-link" onclick="document.getElementById('modal-mis-pacientes').classList.add('active'); loadMisPacientes();">
+            <i data-lucide="user-check" class="sidebar-link-icon"></i> Mis Pacientes
+          </a>
           <a class="sidebar-link" onclick="showSection('pacientes')">
-            <i data-lucide="users" class="sidebar-link-icon"></i> Pacientes
+            <i data-lucide="users" class="sidebar-link-icon"></i> Directorio Pacientes
           </a>
           <a class="sidebar-link" onclick="showSection('solicitudes')">
             <i data-lucide="mail" class="sidebar-link-icon"></i> Solicitudes
@@ -95,9 +98,9 @@
         </div>
         <div class="navbar-right">
           <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro"><i data-lucide="moon" id="dark-mode-icon"></i></button>
-          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones">
+          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones" style="position:relative;">
             <i data-lucide="bell"></i>
-            <span class="notification-dot hidden" id="notif-dot"></span>
+            <span class="header-badge hidden" id="header-notif-badge">0</span>
           </button>
           <button class="navbar-icon-btn" onclick="showSection('chat')" title="Chat"><i data-lucide="message-circle"></i></button>
         </div>
@@ -192,6 +195,7 @@
               <div class="tab" onclick="showAppointmentTab('confirmed')">Confirmadas</div>
               <div class="tab" onclick="showAppointmentTab('completed')">Finalizadas</div>
             </div>
+            <button class="btn btn-primary btn-sm" onclick="openNewAppointmentModal()">+ Nueva Cita</button>
           </div>
           <div id="appointments-list"></div>
         </section>
@@ -286,10 +290,22 @@
                       </select>
                     </div>
                   </div>
-                  <div class="form-group">
-                    <label class="form-label">Teléfono</label>
-                    <input type="tel" class="form-input" id="prof-phone">
-                  </div>
+                    <div style="display:flex;gap:0.75rem;">
+                      <div class="form-group" style="flex:1">
+                        <label class="form-label">Teléfono</label>
+                        <input type="tel" class="form-input" id="prof-phone">
+                      </div>
+                      <div class="form-group" style="flex:1">
+                        <label class="form-label">Género</label>
+                        <select class="form-select" id="prof-gender">
+                          <option value="">Seleccione</option>
+                          <option value="Masculino">Masculino</option>
+                          <option value="Femenino">Femenino</option>
+                          <option value="Otro">Otro</option>
+                          <option value="Prefiero no indicarlo">Prefiero no indicarlo</option>
+                        </select>
+                      </div>
+                    </div>
                   <div class="form-group">
                     <label class="form-label">Disponibilidad</label>
                     <select class="form-select" id="prof-disponibilidad">
@@ -431,6 +447,18 @@
           <p style="margin-top: 0.5rem; margin-bottom: 0;"><strong>Disponibilidad:</strong> <span id="perfil-paciente-disponibilidad">-</span></p>
         </div>
         <input type="hidden" id="current-perfil-paciente-id">
+      </div>
+    </div>
+  </div>
+  <!-- Modal Mis Pacientes -->
+  <div class="modal-overlay" id="modal-mis-pacientes">
+    <div class="modal" style="max-width: 500px; max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 class="modal-title">Mis Pacientes</h3>
+        <button class="modal-close" onclick="closeModal('modal-mis-pacientes')"><i data-lucide="x" style="width:18px;height:18px;"></i></button>
+      </div>
+      <div class="modal-body" id="mis-pacientes-list">
+        <!-- Llenado dinámicamente -->
       </div>
     </div>
   </div>

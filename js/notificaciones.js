@@ -96,7 +96,7 @@ function renderNotificationsPanel(notifications) {
 
   return notifications.map(n => `
     <div class="notification-item ${n.leida ? '' : 'unread'}"
-         onclick="handleNotificationClick('${n.id}')"
+         onclick="handleNotificationClick('${n.id}', '${n.tipo}', '${n.referencia_id || ''}')"
          style="padding:0.85rem 1.25rem;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--transition);${n.leida ? '' : 'background:var(--primary-50);'}">
       <div style="display:flex;gap:0.75rem;align-items:flex-start;">
         <span style="font-size:1.1rem;display:flex;align-items:center;flex-shrink:0;margin-top:2px;">${iconMap[n.tipo] || '<i data-lucide="bell" style="width:18px;height:18px;"></i>'}</span>
@@ -111,37 +111,60 @@ function renderNotificationsPanel(notifications) {
   `).join('');
 }
 
-/**
- * Suscribirse a notificaciones con Supabase Realtime
- * Reemplaza el antiguo setInterval de 5s → 0 queries en idle
- */
-function subscribeToNotifications(userId, callback) {
-  // Cancelar suscripción anterior si existe
-  if (_notifChannel) {
-    try { supabase.removeChannel(_notifChannel); } catch(_) {}
-    _notifChannel = null;
+  /**
+   * Suscribirse a notificaciones (Supabase Realtime + Polling Fallback)
+   */
+  function subscribeToNotifications(userId, callback) {
+    if (_notifChannel) {
+      try { supabase.removeChannel(_notifChannel); } catch(_) {}
+      _notifChannel = null;
+    }
+  
+    if (!userId) return;
+  
+    // Intento de Realtime
+    _notifChannel = supabase
+      .channel(`notifications-${userId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      }, (payload) => {
+        if (payload.new) callback(payload.new);
+      })
+      .subscribe();
+
+    let lastSeenDate = new Date().toISOString();
+
+    // Polling de respaldo cada 5 segundos para actualizar badges 
+    // y emitir alertas si Realtime no está habilitado en la tabla notifications.
+    setInterval(async () => {
+      try {
+        const res = await fetch(`/api/notifications/${userId}`);
+        const json = await res.json();
+        const notifs = json.data || [];
+        
+        // Buscar notificaciones nuevas (creadas después de lastSeenDate)
+        const nuevas = notifs.filter(n => new Date(n.created_at) > new Date(lastSeenDate));
+        
+        if (nuevas.length > 0) {
+          // Actualizar lastSeenDate a la más reciente (notifs viene ordenado desc)
+          lastSeenDate = nuevas[0].created_at;
+          
+          // Disparar callback para cada notificación nueva (muestra el Toast)
+          // Se iteran al revés para que se muestren en orden cronológico
+          [...nuevas].reverse().forEach(n => callback(n));
+        }
+
+        if (typeof updateNotificationBadge === 'function') {
+          updateNotificationBadge();
+        }
+      } catch(e) {}
+    }, 5000);
+  
+    return _notifChannel;
   }
-
-  if (!userId) return;
-
-  _notifChannel = supabase
-    .channel(`notifications-${userId}`)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'notifications',
-      filter: `user_id=eq.${userId}`
-    }, (payload) => {
-      if (payload.new) callback(payload.new);
-    })
-    .subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        console.log('[Realtime] Notificaciones conectadas');
-      }
-    });
-
-  return _notifChannel;
-}
 
 /**
  * Cancelar suscripción a notificaciones

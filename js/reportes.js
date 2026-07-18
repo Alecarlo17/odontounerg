@@ -53,53 +53,6 @@ function closeModal(modalId) {
    ENVÍO DE IMÁGENES EN CHAT
    ============================================= */
 
-async function sendChatImage(file, conversationId, senderId) {
-  if (!file) return;
-
-  if (file.size > 5 * 1024 * 1024) {
-    showToast('La imagen no puede exceder 5MB', 'error');
-    return;
-  }
-
-  if (!file.type.startsWith('image/')) {
-    showToast('Solo se permiten archivos de imagen', 'error');
-    return;
-  }
-
-  showLoading(true);
-  try {
-    const client = window.supabaseClient || supabase;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${conversationId}/${Date.now()}.${fileExt}`;
-    
-    const { error: uploadError } = await client.storage
-      .from('chat_images')
-      .upload(fileName, file);
-
-    if (uploadError) throw new Error('Error subiendo imagen');
-
-    const { data: urlData } = client.storage
-      .from('chat_images')
-      .getPublicUrl(fileName);
-
-    const imageUrl = urlData.publicUrl;
-
-    const res = await fetch('/api/chat/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ conversationId, senderId, content: `[Imagen] ${imageUrl}` })
-    });
-    const json = await res.json();
-    if (!json.success) throw new Error();
-    
-    showToast('Imagen enviada', 'success');
-  } catch (err) {
-    showToast('Error al procesar la imagen', 'error');
-  } finally {
-    showLoading(false);
-  }
-}
-
 /* =============================================
    REPORTES ADMIN - Tabla de reportes
    ============================================= */
@@ -140,17 +93,25 @@ async function loadUserReports() {
           <th>Motivo</th>
           <th>Observación</th>
           <th>Estado</th>
+          <th>Acciones</th>
           <th>Fecha</th>
         </tr></thead>
         <tbody>
           ${reports.map(r => {
             const sl = statusLabels[r.status] || { text: r.status, class: 'badge-gray' };
             return `<tr>
-              <td>${escapeHTML(r.created_by || r.reporter_id || '-')}</td>
-              <td>${escapeHTML(r.reported_id || '-')}</td>
+              <td>${escapeHTML(r.reporter?.full_name || r.reporter_id || '-')}</td>
+              <td>${escapeHTML(r.reported?.full_name || r.reported_id || '-')}</td>
               <td>${motivoLabels[r.motivo] || r.motivo || '-'}</td>
-              <td>${r.content ? escapeHTML(r.content).substring(0, 50) : '-'}</td>
-              <td><span class="badge ${sl.class}">${sl.text}</span></td>
+              <td>${r.observacion ? escapeHTML(r.observacion).substring(0, 50) : '-'}</td>
+              <td><span class="badge ${sl.class}" id="status-badge-${r.id}">${sl.text}</span></td>
+              <td>
+                <select class="form-input" style="padding: 4px; font-size: 0.8rem; width: auto;" onchange="updateReportStatus('${r.id}', this.value)">
+                  <option value="pendiente" ${r.status === 'pendiente' ? 'selected' : ''}>Pendiente</option>
+                  <option value="revisado" ${r.status === 'revisado' ? 'selected' : ''}>Revisado</option>
+                  <option value="resuelto" ${r.status === 'resuelto' ? 'selected' : ''}>Resuelto</option>
+                </select>
+              </td>
               <td>${formatDate(r.created_at)}</td>
             </tr>`;
           }).join('')}
@@ -159,6 +120,35 @@ async function loadUserReports() {
     `;
   } catch (e) {
     console.error('Error al cargar reportes:', e);
+  }
+}
+
+async function updateReportStatus(id, status) {
+  try {
+    const res = await fetch(`/api/chat/reports/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Estado actualizado', 'success');
+      // Update badge locally
+      const statusLabels = {
+        'pendiente': { text: 'Pendiente', class: 'badge-warning' },
+        'revisado': { text: 'Revisado', class: 'badge-primary' },
+        'resuelto': { text: 'Resuelto', class: 'badge-success' }
+      };
+      const badge = document.getElementById(`status-badge-${id}`);
+      if (badge && statusLabels[status]) {
+        badge.className = `badge ${statusLabels[status].class}`;
+        badge.textContent = statusLabels[status].text;
+      }
+    } else {
+      showToast(json.message || 'Error al actualizar', 'error');
+    }
+  } catch (e) {
+    showToast('Error de red', 'error');
   }
 }
 

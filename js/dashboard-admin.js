@@ -5,6 +5,9 @@
 
 let currentUser = null;
 let allUsers = [];
+let allStudents = [];
+let allPatients = [];
+let currentSection = 'inicio';
 
 document.addEventListener('DOMContentLoaded', async () => {
   currentUser = await requireAuth();
@@ -206,8 +209,19 @@ async function renderTreatmentsChart() {
 }
 
 function showSection(name) {
+  currentSection = name;
   document.querySelectorAll('.page-content > section').forEach(s => s.classList.add('hidden'));
   document.getElementById(`section-${name}`).classList.remove('hidden');
+  
+  const btnExportPdf = document.getElementById('btn-export-pdf');
+  if (btnExportPdf) {
+    if (['usuarios', 'estudiantes', 'pacientes'].includes(name)) {
+      btnExportPdf.style.display = '';
+    } else {
+      btnExportPdf.style.display = 'none';
+    }
+  }
+
   if (typeof setActiveSidebarLink === 'function') {
     setActiveSidebarLink(name);
   }
@@ -278,7 +292,12 @@ function renderUsersTable(users) {
             <td>${u.disponibilidad || '-'}</td>
             <td>${formatDate(u.created_at)}</td>
             <td>
-              ${u.role !== 'admin' ? `<button class="btn btn-danger btn-sm" onclick="openSuspendModal('${u.id}')">Suspender</button>` : `<span style="font-size:0.85rem;color:var(--text-muted)">N/A</span>`}
+              ${u.role !== 'admin' 
+                ? (u.is_suspended 
+                    ? `<button class="btn btn-success btn-sm" onclick="reactivateUser('${u.id}')">Reactivar</button>` 
+                    : `<button class="btn btn-danger btn-sm" onclick="openSuspendModal('${u.id}')">Suspender</button>`) 
+                : `<span style="font-size:0.85rem;color:var(--text-muted)">N/A</span>`
+              }
             </td>
           </tr>
         `).join('')}
@@ -287,23 +306,49 @@ function renderUsersTable(users) {
   `;
 }
 
+async function reactivateUser(id) {
+  if (!confirm('¿Estás seguro de reactivar a este usuario?')) return;
+  try {
+    const res = await fetch(`/api/admin/users/${id}/reactivate`, {
+      method: 'PUT'
+    });
+    const json = await res.json();
+    if (json.success) {
+      showToast('Usuario reactivado correctamente', 'success');
+      loadAllUsers();
+    } else {
+      showToast(json.message || 'Error al reactivar usuario', 'error');
+    }
+  } catch(e) {
+    showToast('Error de red al reactivar', 'error');
+  }
+}
+
 async function loadStudentsTable() {
   try {
     const res = await fetch('/api/admin/students');
     const json = await res.json();
-    const data = json.data || [];
+    allStudents = json.data || [];
+    const data = allStudents;
     document.getElementById('students-list').innerHTML = `
       <table class="data-table">
-        <thead><tr><th>Nombre</th><th>Cédula</th><th>Sección</th><th>Año</th><th>Estado</th></tr></thead>
-        <tbody>${data.map(s => `
+        <thead><tr><th>Cédula</th><th>Nombre</th><th>Teléfono</th><th>Año/Sección</th><th>Estado</th><th>Historial</th></tr></thead>
+        <tbody>${data.map(s => {
+          const comp = s.stats ? s.stats.completed : 0;
+          const aban = s.stats ? s.stats.abandoned : 0;
+          return `
           <tr>
+            <td>${s.students?.student_id_card || '-'}</td>
             <td>${escapeHTML(formatShortName(s.full_name))}</td>
-            <td>${escapeHTML(s.students?.student_id_card || '-')}</td>
-            <td>${escapeHTML(s.students?.section || '-')}</td>
-            <td>${escapeHTML(s.students?.academic_year || '-')}</td>
-            <td>${s.disponibilidad || '-'}</td>
+            <td>${s.phone || '-'}</td>
+            <td>${s.students?.academic_year || '-'}/${s.students?.section || '-'}</td>
+            <td>${typeof getPatientStatusBadge === 'function' ? getPatientStatusBadge(s.disponibilidad) : (s.disponibilidad || '-')}</td>
+            <td>
+              <span class="badge" style="background-color: var(--success-color); color: white;">${comp} C</span>
+              <span class="badge" style="background-color: var(--danger-color); color: white;">${aban} A</span>
+            </td>
           </tr>
-        `).join('')}</tbody>
+        `}).join('')}</tbody>
       </table>
     `;
   } catch(e) {}
@@ -313,19 +358,24 @@ async function loadPatientsTable() {
   try {
     const res = await fetch('/api/admin/patients');
     const json = await res.json();
-    const data = json.data || [];
+    allPatients = json.data || [];
+    const data = allPatients;
     document.getElementById('patients-list').innerHTML = `
       <table class="data-table">
         <thead><tr><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Problema</th><th>Estado</th></tr></thead>
         <tbody>${data.map(p => {
           const age = p.patients?.birth_date ? calculateAge(p.patients.birth_date) : (p.patients?.age || '-');
+          let reason = p.patients?.consultation_reason || '-';
+          if (p.patients && p.patients.accepts_requests === false) {
+             reason = '<span style="color:var(--success-color);font-weight:600">Alta Médica</span>';
+          }
           return `
           <tr>
             <td>${escapeHTML(formatShortName(p.full_name))}</td>
             <td>${age}</td>
             <td>${p.phone || p.patients?.phone || '-'}</td>
-            <td>${escapeHTML(p.patients?.consultation_reason || '-')}</td>
-            <td>${getPatientStatusBadge(p.disponibilidad)}</td>
+            <td>${reason === '<span style="color:var(--success-color);font-weight:600">Alta Médica</span>' ? reason : escapeHTML(reason)}</td>
+            <td>${typeof getPatientStatusBadge === 'function' ? getPatientStatusBadge(p.disponibilidad) : p.disponibilidad}</td>
           </tr>
         `}).join('')}</tbody>
       </table>
@@ -500,24 +550,143 @@ function confirmAction(title, message) {
 }
 
 /**
- * Exportar usuarios a CSV
+ * Exportar a PDF según la sección actual
  */
 async function handleExportUsers() {
-  if (!allUsers || allUsers.length === 0) {
-    showToast('No hay usuarios para exportar', 'warning');
-    return;
+  let exportData = [];
+  let tableHead = [];
+  let title = '';
+  let filename = '';
+
+  if (currentSection === 'estudiantes') {
+    if (!allStudents || allStudents.length === 0) {
+      showToast('No hay estudiantes para exportar', 'warning');
+      return;
+    }
+    title = 'Reporte de Estudiantes';
+    filename = `estudiantes_odontounerg_${new Date().toISOString().split('T')[0]}.pdf`;
+    tableHead = [['Nombre', 'Cédula', 'Sección', 'Año', 'Estado']];
+    exportData = allStudents.map(s => [
+      s.full_name || '-',
+      s.students?.student_id_card || '-',
+      s.students?.section || '-',
+      s.students?.academic_year || '-',
+      s.disponibilidad || '-'
+    ]);
+  } else if (currentSection === 'pacientes') {
+    if (!allPatients || allPatients.length === 0) {
+      showToast('No hay pacientes para exportar', 'warning');
+      return;
+    }
+    title = 'Reporte de Pacientes';
+    filename = `pacientes_odontounerg_${new Date().toISOString().split('T')[0]}.pdf`;
+    tableHead = [['Nombre', 'Edad', 'Teléfono', 'Problema', 'Estado']];
+    exportData = allPatients.map(p => {
+      const age = p.patients?.birth_date ? (typeof calculateAge === 'function' ? calculateAge(p.patients.birth_date) : '') : (p.patients?.age || '-');
+      // Limpiar html tags de badge
+      let estado = p.disponibilidad || '-';
+      return [
+        p.full_name || '-',
+        age,
+        p.phone || p.patients?.phone || '-',
+        p.patients?.consultation_reason || '-',
+        estado
+      ];
+    });
+  } else {
+    // Por defecto exportamos todos los usuarios (o los filtrados en "usuarios")
+    if (!allUsers || allUsers.length === 0) {
+      showToast('No hay usuarios para exportar', 'warning');
+      return;
+    }
+    title = 'Reporte de Usuarios del Sistema';
+    filename = `usuarios_odontounerg_${new Date().toISOString().split('T')[0]}.pdf`;
+    const roleLabels = { student: 'Estudiante', patient: 'Paciente', admin: 'Administrador' };
+    tableHead = [['Nombre Completo', 'Correo Electrónico', 'Rol', 'Teléfono', 'Disponibilidad', 'Fecha Registro']];
+    exportData = allUsers.map(u => [
+      u.full_name || '-',
+      u.email || '-',
+      roleLabels[u.role] || u.role,
+      u.phone || '-',
+      u.disponibilidad || '-',
+      (typeof formatDate === 'function' ? formatDate(u.created_at) : u.created_at) || '-'
+    ]);
   }
-  const roleLabels = { student: 'Estudiante', patient: 'Paciente', admin: 'Administrador' };
-  const exportData = allUsers.map(u => ({
-    ...u,
-    role_label: roleLabels[u.role] || u.role
-  }));
-  exportToCSV(exportData, [
-    { key: 'full_name', label: 'Nombre' },
-    { key: 'email', label: 'Correo' },
-    { key: 'role_label', label: 'Rol' },
-    { key: 'phone', label: 'Teléfono' },
-    { key: 'disponibilidad', label: 'Disponibilidad' },
-    { key: 'created_at', label: 'Fecha Registro' }
-  ], 'usuarios_odontounerg');
+  
+  showLoading(true);
+  try {
+    if (typeof loadJsPDF === 'function') await loadJsPDF();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape' });
+
+    const getBase64Image = (url) => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch(e) {
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = url;
+      });
+    };
+
+    const logoUnerg = await getBase64Image('/assets/Unerg-1.png');
+    const logoOdonto = await getBase64Image('/assets/logo%202.png');
+
+    if (logoUnerg) doc.addImage(logoUnerg, 'PNG', 15, 10, 20, 20);
+    if (logoOdonto) doc.addImage(logoOdonto, 'PNG', 260, 10, 20, 20);
+
+    doc.setFontSize(18);
+    doc.setTextColor(37, 99, 235);
+    doc.text('Universidad Nacional Experimental Rómulo Gallegos', 148, 18, { align: 'center' });
+    doc.setFontSize(14);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Área de Odontología - OdontoUNERG', 148, 25, { align: 'center' });
+    
+    doc.setFontSize(16);
+    doc.setTextColor(30, 41, 59);
+    doc.text(title, 148, 35, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.text(`Fecha de generación: ${new Date().toLocaleDateString('es-VE')}`, 15, 45);
+
+    if (typeof doc.autoTable === 'function') {
+      doc.autoTable({
+        startY: 50,
+        head: tableHead,
+        body: exportData,
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+        styles: { fontSize: 9 },
+        margin: { left: 15, right: 15 }
+      });
+    } else {
+      throw new Error("El plugin autoTable no está cargado correctamente.");
+    }
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Página ${i} de ${pageCount}`, 280, 200, { align: 'right' });
+    }
+
+    doc.save(filename);
+    showToast('Reporte PDF generado exitosamente', 'success');
+  } catch (error) {
+    console.error("Error PDF:", error);
+    showToast('Error al generar PDF: ' + (error.message || error), 'error');
+  } finally {
+    showLoading(false);
+  }
 }

@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupSidebar() {
   const name = currentUser.profile?.full_name ? formatShortName(currentUser.profile.full_name) : 'Paciente';
   document.getElementById('sidebar-name').textContent = name;
-  document.getElementById('sidebar-avatar').textContent = getInitials(name);
+  const avatarContainer = document.getElementById('sidebar-avatar');
+  avatarContainer.className = 'avatar avatar-sm';
+  avatarContainer.innerHTML = avatarHTML(name, currentUser.profile?.avatar_url, 'avatar-sm');
 }
 
 async function loadDashboardData() {
@@ -70,6 +72,45 @@ async function loadStats() {
     <div class="stat-card"><div class="stat-icon blue"><i data-lucide="calendar"></i></div><div class="stat-info"><div class="stat-label">Citas Activas</div><div class="stat-value">${stats.activeAppointments}</div></div></div>
     <div class="stat-card"><div class="stat-icon cyan"><i data-lucide="clipboard-check"></i></div><div class="stat-info"><div class="stat-label">Tratamientos Recibidos</div><div class="stat-value">${stats.completedTreatments || 0}</div></div></div>
   `;
+
+  // Renderizar estudiante asignado si lo hay
+  const assignedContainer = document.getElementById('assigned-student-container');
+  if (assignedContainer) {
+    if (stats.assignedStudent) {
+      const st = stats.assignedStudent;
+      const avatarStr = avatarHTML(st.full_name, st.avatar_url, 'avatar-md');
+      
+      const fullStars = Math.round(st.avgRating || 0);
+      let starsHtml = '';
+      for (let i = 1; i <= 5; i++) {
+        starsHtml += `<span style="color:${i <= fullStars ? '#eab308' : 'var(--text-muted)'};font-size:1.1rem;">★</span>`;
+      }
+      starsHtml += ` <span style="font-size:0.85rem;font-weight:600;margin-left:0.4rem;">${(st.avgRating||0).toFixed(1)}/5 (${st.ratingsCount||0})</span>`;
+      
+      assignedContainer.innerHTML = `
+        <div class="card" style="margin-bottom: 1.5rem; border: 1px solid var(--primary);">
+          <div class="card-header" style="background-color: rgba(14, 165, 233, 0.05);">
+            <span class="card-title" style="color: var(--primary);"><i data-lucide="user-check"></i> Estudiante Asignado</span>
+            <button class="btn btn-sm btn-outline" onclick="viewStudentProfile('${st.id}')">Ver Perfil</button>
+          </div>
+          <div class="card-body" style="display:flex; align-items:center; gap: 1.5rem;">
+            ${avatarStr}
+            <div style="flex: 1;">
+              <h3 style="margin: 0; font-size: 1.25rem;">${escapeHTML(formatShortName(st.full_name))}</h3>
+              <p style="margin: 0.25rem 0 0.5rem 0; font-size: 0.9rem; color: var(--text-secondary);">📞 ${escapeHTML(st.phone || 'No especificado')}</p>
+              <div>${starsHtml}</div>
+            </div>
+            <div>
+              <button class="btn btn-primary" onclick="showSection('chat'); openChatFromUserId('${st.id}')"><i data-lucide="message-circle" style="width:16px;height:16px;margin-right:0.4rem;"></i> Chat</button>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      assignedContainer.innerHTML = '';
+    }
+  }
+
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -186,17 +227,17 @@ async function loadCasoActivo() {
  * Verificar si hay alta médica pendiente de respuesta
  */
 async function checkPendingReingreso() {
-  const key = `reingreso_respondido_${currentUser.user.id}`;
-  if (sessionStorage.getItem(key)) return;
-
   try {
     const res = await fetch(`/api/dashboard/case-status/${currentUser.user.id}`);
     const json = await res.json();
     const caso = json.data;
 
     if (caso && caso.request.status === 'completed') {
-      // Mostrar modal de reingreso automáticamente
-      setTimeout(() => openReingresoModal(caso.request.id), 1500);
+      const key = `reingreso_respondido_${caso.request.id}`;
+      if (!localStorage.getItem(key)) {
+        // Mostrar modal de reingreso automáticamente
+        setTimeout(() => openReingresoModal(caso.request.id), 1500);
+      }
     }
   } catch(e) {}
 }
@@ -238,11 +279,20 @@ async function updateNotificationBadge() {
   updateBadge('appt-badge', apptCount);
   updateBadge('notif-badge', genCount);
 
-  const dot = document.getElementById('notif-dot');
-  if (dot) {
-    if (genCount > 0) dot.classList.remove('hidden');
-    else dot.classList.add('hidden');
+  const totalCount = reqCount + chatCount + apptCount + genCount;
+
+  const headerBadge = document.getElementById('header-notif-badge');
+  if (headerBadge) {
+    if (totalCount > 0) {
+      headerBadge.textContent = totalCount;
+      headerBadge.classList.remove('hidden');
+    } else {
+      headerBadge.classList.add('hidden');
+    }
   }
+
+  const baseTitle = 'OdontoUNERG | Panel Paciente';
+  document.title = totalCount > 0 ? `(${totalCount}) ${baseTitle}` : baseTitle;
 }
 const _loadedSections = new Set();
 
@@ -324,18 +374,29 @@ async function loadPatientRequestsList(status = null) {
 
     if (req.status === 'pending' && !isFromPatient) {
       actions = `
+        <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${req.student_id}')">Ver Perfil</button>
         <button class="btn btn-success btn-sm" onclick="handleAcceptRequest('${req.id}')">Aceptar</button>
         <button class="btn btn-danger btn-sm" onclick="handleRejectRequest('${req.id}')">Rechazar</button>
       `;
     } else if (req.status === 'pending' && isFromPatient) {
-      actions = `<span class="badge badge-warning">Enviada</span>`;
+      actions = `
+        <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${req.student_id}')">Ver Perfil</button>
+        <span class="badge badge-warning">Enviada</span>
+      `;
     } else if (req.status === 'completed') {
-      actions = `<button class="btn btn-primary btn-sm" onclick="openCalificarModal('${req.student_id}')">Calificar Estudiante</button>`;
+      actions = `
+        <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${req.student_id}')">Ver Perfil</button>
+        ${!req.rated ? `<button class="btn btn-primary btn-sm" onclick="openCalificarModal('${req.student_id}')">Calificar Estudiante</button>` : ''}
+      `;
+    } else {
+      actions = `
+        <button class="btn btn-outline btn-sm" onclick="viewStudentProfile('${req.student_id}')">Ver Perfil</button>
+      `;
     }
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
         <div class="card-body" style="display:flex;align-items:center;gap:1rem;">
-          <span class="avatar avatar-placeholder">${getInitials(name)}</span>
+          ${avatarHTML(name, req.student?.avatar_url)}
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;align-items:center">
               <strong>${escapeHTML(name)}</strong>
@@ -372,8 +433,8 @@ async function handleRejectRequest(id) {
   }
 }
 
-async function loadAppointmentsList() {
-  const appointments = await getAppointments(currentUser.user.id);
+async function loadAppointmentsList(status = null) {
+  const appointments = await getAppointments(currentUser.user.id, status);
   const container = document.getElementById('appointments-list');
   if (appointments.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="calendar"></i></div><p class="empty-state-title">Sin citas</p></div>';
@@ -398,8 +459,8 @@ async function loadChatConversations() {
     return;
   }
   container.innerHTML = conversations.map(c => `
-    <div class="chat-item" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || '')}')">
-      <div class="chat-item-avatar-placeholder">${getInitials(c.otherUser?.full_name)}</div>
+    <div class="chat-item" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || '')}', '${c.otherUser?.avatar_url || ''}')">
+      ${avatarHTML(c.otherUser?.full_name, c.otherUser?.avatar_url)}
       <div class="chat-item-info">
         <div class="chat-item-name">${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}</div>
         <div class="chat-item-last">${c.lastMessage ? escapeHTML(c.lastMessage.content) : 'Sin mensajes'}</div>
@@ -412,8 +473,11 @@ async function loadChatConversations() {
   `).join('');
 }
 
-async function openChat(conversationId, otherUserId, otherName) {
+async function openChat(conversationId, otherUserId, otherName, otherAvatar) {
   currentConversationId = conversationId;
+
+  const sidebar = document.querySelector('.chat-sidebar');
+  if (sidebar) sidebar.classList.add('hidden-mobile');
 
   await markMessagesAsRead(conversationId, currentUser.user.id);
   
@@ -429,7 +493,8 @@ async function openChat(conversationId, otherUserId, otherName) {
   const messages = await getMessages(conversationId);
   document.getElementById('chat-main-panel').innerHTML = `
     <div class="chat-main-header">
-      <span class="avatar avatar-placeholder avatar-sm">${getInitials(otherName)}</span>
+      <button class="chat-header-btn mobile-only" style="margin-right:0.5rem;" onclick="document.querySelector('.chat-sidebar').classList.remove('hidden-mobile')" title="Volver a la lista"><i data-lucide="arrow-left" style="width:20px;height:20px;"></i></button>
+      ${avatarHTML(otherName, otherAvatar, 'avatar-sm')}
       <div><div class="chat-main-name">${escapeHTML(otherName)}</div></div>
       <div style="margin-left:auto;display:flex;gap:0.25rem;">
         <button class="chat-header-btn" onclick="openReportModal('${otherUserId}', '${conversationId}')" title="Reportar usuario"><i data-lucide="flag" style="width:18px;height:18px;"></i></button>
@@ -482,7 +547,7 @@ async function loadTreatmentsHistory() {
     container.innerHTML = `<div class="table-wrapper"><table class="data-table"><thead><tr><th>Estudiante</th><th>Tratamiento</th><th>Fecha</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${treatments.map(t => {
       const est = { pendiente: { t: 'Pendiente', c: 'badge-warning' }, en_proceso: { t: 'En proceso', c: 'badge-primary' }, finalizado: { t: 'Finalizado', c: 'badge-success' } }[t.estado] || { t: t.estado, c: 'badge-gray' };
       const btn = t.estado === 'finalizado' ? `<button class="btn btn-sm btn-outline" onclick="openCalificarModal('${t.student_id}')">Calificar</button>` : '';
-      return `<tr><td>${escapeHTML(t.other_name || '')}</td><td>${escapeHTML(t.tratamiento)}</td><td>${formatDate(t.fecha)}</td><td><span class="badge ${est.c}">${est.t}</span></td><td>${btn}</td></tr>`;
+      return `<tr><td><div style="display:flex;align-items:center;gap:0.75rem;">${avatarHTML(t.other_name, t.other_avatar_url, 'avatar-sm')}<span>${escapeHTML(t.other_name || '')}</span></div></td><td>${escapeHTML(t.tratamiento)}</td><td>${formatDate(t.fecha)}</td><td><span class="badge ${est.c}">${est.t}</span></td><td>${btn}</td></tr>`;
     }).join('')}</tbody></table></div>`;
   } catch(e) {
     console.error(e);
@@ -492,18 +557,43 @@ async function loadTreatmentsHistory() {
 async function loadProfileData() {
   const userData = await getCurrentUser();
   if (!userData) return;
+
   const { profile, roleData } = userData;
   document.getElementById('profile-name-display').textContent = formatShortName(profile.full_name);
   document.getElementById('profile-email-display').textContent = profile.email;
+  const avatarUrl = profile.avatar_url !== 'null' ? profile.avatar_url : null;
   document.getElementById('profile-avatar').textContent = getInitials(profile.full_name);
-  document.getElementById('prof-name').value = profile.full_name || '';
-  document.getElementById('prof-phone').value = profile.phone || '';
-  document.getElementById('prof-disponibilidad').value = profile.disponibilidad || 'disponible';
+
+  if (avatarUrl) {
+    document.getElementById('profile-avatar-container').innerHTML = `
+      <img src="${avatarUrl}" class="avatar avatar-xl" alt="Foto de perfil" style="cursor:pointer">
+      <div style="position:absolute;bottom:0;right:0;background:var(--primary);color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><i data-lucide="camera" style="width:12px;height:12px;"></i></div>
+    `;
+  }
+  const nameInput = document.getElementById('prof-name');
+  if (nameInput) nameInput.value = profile.full_name || '';
+  
+  const phoneInput = document.getElementById('prof-phone');
+  if (phoneInput) phoneInput.value = profile.phone || '';
+  
+  const dispInput = document.getElementById('prof-disponibilidad');
+  if (dispInput) dispInput.value = profile.disponibilidad || 'disponible';
+  
   const ageVal = roleData?.birth_date ? calculateAge(roleData.birth_date) : (roleData?.age || '');
-  document.getElementById('prof-age').value = ageVal;
-  document.getElementById('prof-direccion').value = roleData?.direccion || '';
-  document.getElementById('prof-problema').value = roleData?.consultation_reason || '';
-  document.getElementById('prof-antecedentes').value = roleData?.medical_history || '';
+  const ageInput = document.getElementById('prof-age');
+  if (ageInput) ageInput.value = ageVal;
+  
+  const dirInput = document.getElementById('prof-direccion');
+  if (dirInput) dirInput.value = roleData?.direccion || '';
+  
+  const probInput = document.getElementById('prof-problema');
+  if (probInput) probInput.value = roleData?.consultation_reason || '';
+  
+  const antInput = document.getElementById('prof-antecedentes');
+  if (antInput) antInput.value = roleData?.medical_history || '';
+  
+  const genderSel = document.getElementById('prof-gender');
+  if (genderSel) genderSel.value = roleData?.gender || '';
 
   // Show floating button if patient is inactive
   const floatingBtn = document.getElementById('btn-floating-new-case');
@@ -518,7 +608,7 @@ async function handleUpdateProfile(event) {
   event.preventDefault();
   const userId = currentUser.user.id;
   await updateProfile(userId, { fullName: document.getElementById('prof-name').value, phone: document.getElementById('prof-phone').value, disponibilidad: document.getElementById('prof-disponibilidad').value });
-  await updatePatientData(userId, { age: document.getElementById('prof-age').value, phone: document.getElementById('prof-phone').value, address: document.getElementById('prof-direccion').value, medicalHistory: document.getElementById('prof-antecedentes').value, consultationReason: document.getElementById('prof-problema').value });
+  await updatePatientData(userId, { age: document.getElementById('prof-age').value, phone: document.getElementById('prof-phone').value, address: document.getElementById('prof-direccion').value, medicalHistory: document.getElementById('prof-antecedentes').value, consultationReason: document.getElementById('prof-problema').value, gender: document.getElementById('prof-gender').value });
   setupSidebar();
 }
 
@@ -531,8 +621,18 @@ async function loadNotificationsList() {
   document.getElementById('notifications-list').innerHTML = renderNotificationsPanel(notifications);
 }
 
-window.handleNotificationClick = async (id) => {
+window.handleNotificationClick = async (id, tipo, refId) => {
   await markNotificationRead(id);
+  
+  if (tipo === 'alta_medica') {
+    switchSection('inicio');
+    setTimeout(() => checkPendingReingreso(), 500);
+  } else if (tipo === 'mensaje') {
+    switchSection('chat');
+  } else if (tipo === 'cita') {
+    switchSection('citas');
+  }
+  
   loadNotificationsList();
   updateNotificationBadge();
 };
@@ -545,14 +645,14 @@ async function handleMarkAllRead() {
 
 function openCalificarModal(studentId) {
   document.getElementById('calificar-student-id').value = studentId;
-  document.getElementById('modal-calificar').classList.add('active');
+  document.getElementById('modal-calificar-estudiante').classList.add('active');
 }
 
 async function handleCalificar(event) {
   event.preventDefault();
   const studentId = document.getElementById('calificar-student-id').value;
   const rating = document.getElementById('calificar-puntuacion').value;
-  const comment = document.getElementById('calificar-comentario').value;
+  const comment = document.getElementById('rating-comment').value;
 
   if (!rating) return;
   showLoading(true);
@@ -594,7 +694,7 @@ async function handleReingresoOption(option) {
   if (option === 'no') {
     showLoading(true);
     try {
-      const res = await fetch(`/api/profile/${currentUser.user.id}/patient/status`, {
+      const res = await fetch(`/api/profiles/${currentUser.user.id}/patient/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -627,7 +727,7 @@ async function handleSubmitNuevoCaso(event) {
   showLoading(true);
   try {
     // 1. Update patient status
-    const res = await fetch(`/api/profile/${currentUser.user.id}/patient/status`, {
+    const res = await fetch(`/api/profiles/${currentUser.user.id}/patient/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -652,88 +752,120 @@ async function handleSubmitNuevoCaso(event) {
 }
 
 async function viewStudentProfile(studentId) {
-  const s = allStudents.find(st => st.id === studentId);
-  if (!s) {
-    showToast('No se encontró información del estudiante', 'error');
-    return;
-  }
-  const student = Array.isArray(s.students) ? s.students[0] : (s.students || {});
-  const disponibilidad = s.disponibilidad || 'disponible';
-  const dispText = disponibilidad === 'disponible' ? 'Disponible' : disponibilidad === 'ocupado' ? 'Ocupado' : 'No disponible';
-  const dispClass = disponibilidad === 'disponible' ? 'badge-success' : disponibilidad === 'ocupado' ? 'badge-warning' : 'badge-error';
-
-  const avatarContainer = document.getElementById('perfil-estudiante-avatar');
-  if (s.avatar_url) {
-    avatarContainer.innerHTML = `<img src="${s.avatar_url}" class="avatar avatar-xl" alt="${escapeHTML(s.full_name)}">`;
-  } else {
-    avatarContainer.innerHTML = `<span class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(s.full_name)}</span>`;
-  }
-
-  document.getElementById('perfil-estudiante-nombre').textContent = escapeHTML(formatShortName(s.full_name));
-  
-  const badgesHtml = [];
-  if (student.academic_year) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(student.academic_year)}</span>`);
-  if (student.section) badgesHtml.push(`<span class="badge badge-primary">Sección ${escapeHTML(student.section)}</span>`);
-  
-  document.getElementById('perfil-estudiante-badges').innerHTML = badgesHtml.join(' ');
-  document.getElementById('perfil-estudiante-cedula').textContent = escapeHTML(student.student_id_card || 'No especificada');
-  document.getElementById('perfil-estudiante-edad').textContent = escapeHTML(student.age ? student.age + ' años' : 'No especificada');
-  document.getElementById('perfil-estudiante-disponibilidad').innerHTML = `<span class="badge ${dispClass}">${dispText}</span>`;
-  
-  let tratamientos = [];
   try {
-    tratamientos = typeof student.treatments_needed === 'string' ? JSON.parse(student.treatments_needed) : (student.treatments_needed || []);
-  } catch (e) {
-    tratamientos = [];
-  }
-  const tratamientosContainer = document.getElementById('perfil-estudiante-tratamientos');
-  if (tratamientos.length > 0) {
-    tratamientosContainer.innerHTML = tratamientos.map(t => `<span class="badge badge-outline">${escapeHTML(t)}</span>`).join('');
-  } else {
-    tratamientosContainer.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No especificó</span>';
-  }
-
-  // Cargar datos en vivo del perfil (estrellas y cupos)
-  try {
-    const res = await fetch(`/api/profile/${studentId}/public-student`);
+    showLoading(true);
+    const res = await fetch(`/api/profiles/${studentId}/public-student`);
     const json = await res.json();
-    if (json.success) {
-      const avg = json.data.avgRating || 0;
-      const count = json.data.ratingsCount || 0;
-      const active = json.data.activePatients || 0;
+    showLoading(false);
 
-      // Generar estrellas
-      const fullStars = Math.round(avg);
-      let starsHtml = '';
+    if (!json.success || !json.data) {
+      showToast('No se encontró información del estudiante', 'error');
+      return;
+    }
+
+    const { profile, student, ratings, avgRating, ratingsCount, activePatients } = json.data;
+    if (!profile) {
+      showToast('No se encontró información del estudiante', 'error');
+      return;
+    }
+
+    const s = profile;
+    const studentObj = student || {};
+    const disponibilidad = s.disponibilidad || 'disponible';
+    const dispText = disponibilidad === 'disponible' ? 'Disponible' : disponibilidad === 'ocupado' ? 'Ocupado' : 'No disponible';
+    const dispClass = disponibilidad === 'disponible' ? 'badge-success' : disponibilidad === 'ocupado' ? 'badge-warning' : 'badge-error';
+
+    const avatarContainer = document.getElementById('perfil-estudiante-avatar');
+    avatarContainer.innerHTML = avatarHTML(s.full_name, s.avatar_url, 'avatar-xl');
+
+    document.getElementById('perfil-estudiante-nombre').textContent = escapeHTML(formatShortName(s.full_name));
+    
+    const badgesHtml = [];
+    if (studentObj.academic_year) badgesHtml.push(`<span class="badge badge-primary">${escapeHTML(studentObj.academic_year)}</span>`);
+    if (studentObj.section) badgesHtml.push(`<span class="badge badge-primary">Sección ${escapeHTML(studentObj.section)}</span>`);
+    
+    document.getElementById('perfil-estudiante-badges').innerHTML = badgesHtml.join(' ');
+    document.getElementById('perfil-estudiante-cedula').textContent = escapeHTML(studentObj.student_id_card || 'No especificada');
+    document.getElementById('perfil-estudiante-edad').textContent = escapeHTML(studentObj.age ? studentObj.age + ' años' : 'No especificada');
+    document.getElementById('perfil-estudiante-disponibilidad').innerHTML = `<span class="badge ${dispClass}">${dispText}</span>`;
+    
+    let tratamientos = [];
+    try {
+      tratamientos = typeof studentObj.treatments_needed === 'string' ? JSON.parse(studentObj.treatments_needed) : (studentObj.treatments_needed || []);
+    } catch (e) {
+      tratamientos = [];
+    }
+    const tratamientosContainer = document.getElementById('perfil-estudiante-tratamientos');
+    if (tratamientos.length > 0) {
+      tratamientosContainer.innerHTML = tratamientos.map(t => `<span class="badge badge-outline">${escapeHTML(t)}</span>`).join('');
+    } else {
+      tratamientosContainer.innerHTML = '<span style="color:var(--text-muted);font-size:0.85rem">No especificó</span>';
+    }
+
+    // Generar estrellas
+    const avg = avgRating || 0;
+    const count = ratingsCount || 0;
+    const active = activePatients || 0;
+    const fullStars = Math.round(avg);
+    let starsHtml = '';
+    if (count > 0) {
       for (let i = 1; i <= 5; i++) {
         starsHtml += `<span style="color:${i <= fullStars ? '#eab308' : 'var(--text-muted)'};font-size:1.2rem;">★</span>`;
       }
       starsHtml += ` <span style="font-size:0.9rem;font-weight:600;margin-left:0.5rem;">${avg.toFixed(1)}/5 (${count})</span>`;
-
-      // Insertar en un contenedor de estadísticas extra
-      let statsHtml = `
-        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-          <div style="display:flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="font-size:0.9rem; font-weight:600;">Reputación:</span>
-            <span>${starsHtml}</span>
-          </div>
-          <div style="display:flex; justify-content: space-between;">
-            <span style="font-size:0.9rem; font-weight:600;">Pacientes Activos:</span>
-            <span style="font-size:0.9rem; ${active >= 3 ? 'color:var(--danger);font-weight:bold;' : ''}">${active} / 3 permitidos</span>
-          </div>
-        </div>
-      `;
-      // Añadir al DOM
-      const modalBody = document.querySelector('#modal-perfil-estudiante .modal-body');
-      let extraStats = document.getElementById('perfil-estudiante-extra-stats');
-      if (!extraStats) {
-        extraStats = document.createElement('div');
-        extraStats.id = 'perfil-estudiante-extra-stats';
-        modalBody.insertBefore(extraStats, tratamientosContainer.parentNode);
-      }
-      extraStats.innerHTML = statsHtml;
+    } else {
+      starsHtml = `<span style="font-size:0.9rem;font-weight:600;color:var(--text-muted)">N/A (Sin calificaciones)</span>`;
     }
+
+    // Insertar en un contenedor de estadísticas extra
+    let statsHtml = `
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+        <div style="display:flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span style="font-size:0.9rem; font-weight:600;">Reputación:</span>
+          <span>${starsHtml}</span>
+        </div>
+        <div style="display:flex; justify-content: space-between;">
+          <span style="font-size:0.9rem; font-weight:600;">Pacientes Activos:</span>
+          <span style="font-size:0.9rem; ${active >= 3 ? 'color:var(--danger);font-weight:bold;' : ''}">${active} / 3 permitidos</span>
+        </div>
+      </div>
+    `;
+
+    // Añadir al DOM (stats)
+    const modalBody = document.querySelector('#modal-perfil-estudiante .modal-body');
+    let extraStats = document.getElementById('perfil-estudiante-extra-stats');
+    if (!extraStats) {
+      extraStats = document.createElement('div');
+      extraStats.id = 'perfil-estudiante-extra-stats';
+      modalBody.insertBefore(extraStats, tratamientosContainer.parentNode);
+    }
+    extraStats.innerHTML = statsHtml;
+
+    // Cargar reseñas/comentarios
+    let resenasContainer = document.getElementById('perfil-estudiante-resenas');
+    if (!resenasContainer) {
+      resenasContainer = document.createElement('div');
+      resenasContainer.id = 'perfil-estudiante-resenas';
+      modalBody.appendChild(resenasContainer);
+    }
+    
+    if (ratings && ratings.length > 0) {
+      const comentarios = ratings.map(r => `
+        <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
+          <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <strong>${escapeHTML(r.patient_name || 'Paciente')}</strong>
+            <span style="color:#eab308; font-size: 1rem;">${'★'.repeat(r.score)}${'☆'.repeat(5 - r.score)}</span>
+          </div>
+          <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">${escapeHTML(r.comment || 'Sin comentarios adicionales.')}</p>
+        </div>
+      `).join('');
+      resenasContainer.innerHTML = `<h4 style="margin-top: 1.5rem; margin-bottom: 1rem;">Reseñas de Pacientes</h4>${comentarios}`;
+    } else {
+      resenasContainer.innerHTML = `<h4 style="margin-top: 1.5rem; margin-bottom: 1rem;">Reseñas de Pacientes</h4><p style="font-size:0.9rem;color:var(--text-muted)">Aún no hay reseñas.</p>`;
+    }
+
   } catch(e) {
+    showLoading(false);
     console.error('Error cargando stats de estudiante', e);
   }
 
@@ -851,8 +983,8 @@ async function handleUpdateClinicalInfo(event) {
  * Abrir el modal de seguimiento post-alta
  */
 function openReingresoModal(requestId) {
-  const key = `reingreso_respondido_${currentUser?.user?.id}`;
-  if (sessionStorage.getItem(key)) return; // Ya respondido en esta sesión
+  const key = `reingreso_respondido_${requestId}`;
+  if (localStorage.getItem(key)) return; // Ya respondido para este caso
   window._altaRequestId = requestId;
   document.getElementById('modal-alta-seguimiento').classList.add('active');
 }
@@ -863,21 +995,13 @@ function openReingresoModal(requestId) {
  */
 async function handleAltaDecision(wantsNewCase) {
   closeModal('modal-alta-seguimiento');
-  const key = `reingreso_respondido_${currentUser?.user?.id}`;
-  sessionStorage.setItem(key, 'true');
+  if (window._altaRequestId) {
+    const key = `reingreso_respondido_${window._altaRequestId}`;
+    localStorage.setItem(key, 'true');
+  }
 
   if (wantsNewCase) {
-    try {
-      await supabase
-        .from('patients')
-        .update({ accepts_requests: true })
-        .eq('id', currentUser.user.id);
-      showToast('Tu perfil ha sido reactivado. ¡Pronto recibirás nuevas solicitudes!', 'success');
-      loadCasoActivo();
-      loadStats();
-    } catch(e) {
-      showToast('Error al reactivar perfil', 'error');
-    }
+    openNuevoCasoModal();
   } else {
     showToast('¡Que te mejores! Gracias por usar OdontoUNERG.', 'success');
   }
@@ -889,11 +1013,54 @@ async function handleAltaDecision(wantsNewCase) {
         const res = await fetch(`/api/requests/patient/${currentUser.user.id}`);
         const json = await res.json();
         const completed = (json.data || []).find(r => r.id === window._altaRequestId);
-        if (completed?.student_id) {
+        if (completed?.student_id && !completed.has_rated) {
           openCalificarModal(completed.student_id);
         }
       } catch(_) {}
     }, 1200);
+  }
+}
+
+function openNuevoCasoModal() {
+  const modal = document.getElementById('modal-nuevo-caso');
+  if (modal) modal.classList.add('active');
+}
+
+async function handleSubmitNuevoCaso(event) {
+  event.preventDefault();
+  const problema = document.getElementById('new-case-problema').value;
+  const descripcion = document.getElementById('new-case-descripcion').value;
+  const disponibilidad = document.getElementById('new-case-disponibilidad').value;
+
+  showLoading(true);
+  try {
+    const { error: err1 } = await supabase
+        .from('patients')
+        .update({ 
+            accepts_requests: true,
+            consultation_reason: problema,
+            descripcion_problema: descripcion
+        })
+        .eq('id', currentUser.user.id);
+        
+    if (err1) throw err1;
+    
+    const { error: err2 } = await supabase
+        .from('profiles')
+        .update({ disponibilidad })
+        .eq('id', currentUser.user.id);
+        
+    if (err2) throw err2;
+
+    showLoading(false);
+    showToast('Nuevo caso registrado. Ya estás visible para nuevos estudiantes.', 'success');
+    closeModal('modal-nuevo-caso');
+    document.getElementById('new-case-descripcion').value = '';
+    loadCasoActivo();
+    loadStats();
+  } catch (e) {
+    showLoading(false);
+    showToast('Error al registrar nuevo caso', 'error');
   }
 }
 

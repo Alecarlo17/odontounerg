@@ -1,4 +1,4 @@
-﻿/* =============================================
+/* =============================================
    CHAT.CSS - Estilos del Chat
    ============================================= */
 
@@ -292,9 +292,20 @@
 
 /* Responsive del chat */
 @media (max-width: 768px) {
-  .chat-sidebar { width: 100%; position: absolute; z-index: 10; }
-  .chat-sidebar.hidden-mobile { display: none; }
-  .chat-layout { position: relative; }
+  .chat-sidebar { width: 100%; position: absolute; z-index: 10; height: 100%; transition: transform 0.3s ease; }
+  .chat-sidebar.hidden-mobile { transform: translateX(-100%); }
+  .chat-layout { position: relative; overflow: hidden; }
+  .chat-main { width: 100%; height: 100%; }
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: flex !important;
+  }
 }
 
 /* =============================================

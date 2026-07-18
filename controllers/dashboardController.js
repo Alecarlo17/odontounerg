@@ -18,13 +18,28 @@ async function getPatientDashboard(req, res) {
       { count: pending },
       { count: accepted },
       { count: appointments },
-      { count: completed }
+      { count: completed },
+      { data: activeRequest }
     ] = await Promise.all([
       db.supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'pending'),
       db.supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).in('status', ['accepted', 'active']),
       db.supabase.from('appointments').select('*, requests!inner(*)', { count: 'exact', head: true }).eq('requests.patient_id', userId).in('status', ['proposed', 'confirmed']),
-      db.supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'completed')
+      db.supabase.from('requests').select('*', { count: 'exact', head: true }).eq('patient_id', userId).eq('status', 'completed'),
+      db.supabase.from('requests').select('student:student_id(id, full_name, phone, avatar_url)').eq('patient_id', userId).in('status', ['accepted', 'active']).limit(1).single()
     ]);
+
+    let assignedStudent = null;
+    if (activeRequest && activeRequest.student) {
+      const st = Array.isArray(activeRequest.student) ? activeRequest.student[0] : activeRequest.student;
+      if (st) {
+        const rating = await RatingsModel.getStudentAverage(st.id);
+        assignedStudent = {
+          ...st,
+          avgRating: rating.avg,
+          ratingsCount: rating.count
+        };
+      }
+    }
 
     return res.json({
       success: true,
@@ -32,7 +47,8 @@ async function getPatientDashboard(req, res) {
         pendingRequests: pending || 0,
         acceptedRequests: accepted || 0,
         activeAppointments: appointments || 0,
-        completedTreatments: completed || 0
+        completedTreatments: completed || 0,
+        assignedStudent
       }
     });
   } catch(e) {
@@ -265,7 +281,7 @@ async function getTreatments(req, res) {
   const { userId, role } = req.params;
   try {
     const col = role === 'student' ? 'student_id' : 'patient_id';
-    const joinCol = role === 'student' ? 'patient:patient_id(full_name)' : 'student:student_id(full_name)';
+    const joinCol = role === 'student' ? 'patient:patient_id(full_name, avatar_url)' : 'student:student_id(full_name, avatar_url)';
 
     const { data: treatmentsData, error } = await db.supabase
       .from('treatments')
@@ -275,10 +291,12 @@ async function getTreatments(req, res) {
 
     if (error) throw error;
 
-    // Normalizar nombre del otro participante
+    // Normalizar nombre y avatar del otro participante
     const data = (treatmentsData || []).map(t => {
       const other = role === 'student' ? t.patient : t.student;
-      t.other_name = Array.isArray(other) ? other[0]?.full_name : (other?.full_name || 'Desconocido');
+      const otherObj = Array.isArray(other) ? other[0] : other;
+      t.other_name = otherObj?.full_name || 'Desconocido';
+      t.other_avatar_url = otherObj?.avatar_url || null;
       return t;
     });
 
@@ -450,7 +468,7 @@ async function getCaseStatus(req, res) {
       .from('requests')
       .select('*, student:student_id(full_name, email)')
       .eq('patient_id', patientId)
-      .in('status', ['accepted', 'active', 'completed'])
+      .in('status', ['accepted', 'active', 'in_treatment'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

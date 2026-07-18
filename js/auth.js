@@ -54,8 +54,9 @@ function redirectByRole(role) {
  * Iniciar sesión con correo y contraseña
  * @param {string} email
  * @param {string} password
+ * @param {File|null} photoFile (Opcional)
  */
-async function loginUser(email, password) {
+async function loginUser(email, password, photoFile = null) {
   const client = window.supabaseClient || supabase;
   // Validaciones
   if (!email || !password) {
@@ -106,6 +107,19 @@ async function loginUser(email, password) {
       showToast('Su cuenta ha sido suspendida: ' + (profile.suspension_reason || 'Sin motivo especificado'), 'error');
       await client.auth.signOut();
       return;
+    }
+
+    if (photoFile) {
+      showToast('Subiendo foto de perfil...', 'info');
+      try {
+        const compressedBlob = await compressImage(photoFile, 800, 800, 0.8);
+        const fileName = `${data.user.id}/avatar.jpg`;
+        await client.storage.from('avatars').upload(fileName, compressedBlob, { upsert: true, contentType: 'image/jpeg' });
+        const { data: urlData } = client.storage.from('avatars').getPublicUrl(fileName);
+        await client.from('profiles').update({ avatar_url: urlData.publicUrl }).eq('id', data.user.id);
+      } catch (err) {
+        console.error('Error al subir foto:', err);
+      }
     }
 
     showLoading(false);
@@ -188,7 +202,7 @@ async function registerStudent(formData) {
     
     // Auto-login
     setTimeout(async () => {
-      await loginUser(formData.email.trim(), formData.password);
+      await loginUser(formData.email.trim(), formData.password, formData.photoFile);
     }, 1500);
 
   } catch (err) {
@@ -268,7 +282,7 @@ async function registerPatient(formData) {
     
     // Auto-login
     setTimeout(async () => {
-      await loginUser(formData.email.trim(), formData.password);
+      await loginUser(formData.email.trim(), formData.password, formData.photoFile);
     }, 1500);
 
   } catch (err) {
@@ -411,6 +425,18 @@ function setupSessionWatcher(session) {
       showToast('Cerrando sesión...', 'info');
       setTimeout(() => window.location.href = '/login', 1000);
       return;
+    }
+
+    // Check if user got suspended while active
+    if (currentSession.user && currentSession.user.id) {
+      const { data: profile } = await client.from('profiles').select('is_suspended, suspension_reason').eq('id', currentSession.user.id).single();
+      if (profile && profile.is_suspended) {
+        clearInterval(window._sessionWatcherInterval);
+        showToast('Su cuenta ha sido suspendida: ' + (profile.suspension_reason || 'Sin motivo especificado'), 'error');
+        await client.auth.signOut();
+        setTimeout(() => window.location.href = '/login', 1000);
+        return;
+      }
     }
 
     const now = Math.floor(Date.now() / 1000);

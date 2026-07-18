@@ -307,12 +307,21 @@ async function generateCertificateInternal(requestId, studentId, patientId) {
   const PDFDocument = require('pdfkit');
   const buffers = [];
 
-  const { data: patientUser } = await db.supabase.from('profiles').select('full_name, cedula').eq('id', patientId).maybeSingle();
-  const { data: patient } = await db.supabase.from('patients').select('age, gender').eq('id', patientId).maybeSingle();
-  const { data: studentUser } = await db.supabase.from('profiles').select('full_name, cedula').eq('id', studentId).maybeSingle();
-  const { data: student } = await db.supabase.from('students').select('academic_year, section').eq('id', studentId).maybeSingle();
-  const { data: diagnosis } = await db.supabase.from('initial_diagnosis').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(1).maybeSingle();
-  const { data: treatments } = await db.supabase.from('treatments').select('tratamiento, estado, fecha').eq('patient_id', patientId).eq('student_id', studentId);
+  const [
+    { data: patientUser },
+    { data: patient },
+    { data: studentUser },
+    { data: student },
+    { data: diagnosis },
+    { data: treatments }
+  ] = await Promise.all([
+    db.supabase.from('profiles').select('full_name, cedula').eq('id', patientId).maybeSingle(),
+    db.supabase.from('patients').select('age, gender').eq('id', patientId).maybeSingle(),
+    db.supabase.from('profiles').select('full_name, cedula').eq('id', studentId).maybeSingle(),
+    db.supabase.from('students').select('academic_year, section').eq('id', studentId).maybeSingle(),
+    db.supabase.from('initial_diagnosis').select('*').eq('patient_id', patientId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    db.supabase.from('treatments').select('tratamiento, estado, fecha').eq('patient_id', patientId).eq('student_id', studentId)
+  ]);
 
   const doc = new PDFDocument({ margin: 50 });
   doc.on('data', chunk => buffers.push(chunk));
@@ -387,6 +396,81 @@ async function generateCertificateInternal(requestId, studentId, patientId) {
   return pdfUrl;
 }
 
+/**
+ * Descartar paciente por no cumplir requisitos (sin penalización)
+ */
+async function discardPatient(req, res) {
+  const { id } = req.params;
+
+  try {
+    const { data: requestRow } = await db.supabase
+      .from('requests')
+      .select('student_id, patient_id, status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!requestRow) {
+      return res.status(404).json({ success: false, message: 'Solicitud no encontrada' });
+    }
+
+    if (!['accepted', 'active'].includes(requestRow.status)) {
+      return res.status(400).json({ success: false, message: 'Solo se puede descartar solicitudes activas' });
+    }
+
+    // Verificar que NO tenga citas
+    const { count: apptCount } = await db.supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('request_id', id);
+
+    if (apptCount > 0) {
+      return res.status(400).json({ success: false, message: 'No se puede descartar porque ya existen citas registradas. Debes usar la opción de Abandono.' });
+    }
+
+    // Verificar que NO tenga tratamientos (por si acaso los registró manual sin citas)
+    const { count: treatmentCount } = await db.supabase
+      .from('treatments')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', requestRow.patient_id)
+      .eq('student_id', requestRow.student_id);
+
+    if (treatmentCount > 0) {
+      return res.status(400).json({ success: false, message: 'No se puede descartar porque ya existen tratamientos registrados. Debes usar la opción de Abandono.' });
+    }
+
+    const RequestsModel = require('../models/requests');
+    const success = await RequestsModel.markDiscarded(id, 'No cumple requisitos académicos');
+    if (!success) {
+      return res.status(500).json({ success: false, message: 'Error al descartar el caso' });
+    }
+
+    // Reactivar paciente: vuelve a ser visible para nuevos estudiantes
+    await db.supabase
+      .from('patients')
+      .update({ accepts_requests: true })
+      .eq('id', requestRow.patient_id);
+
+    const { data: studentProfile } = await db.supabase.from('profiles').select('full_name').eq('id', requestRow.student_id).maybeSingle();
+    const studentName = studentProfile?.full_name || 'El estudiante';
+    
+    const { sendNotification, logActivity } = require('../services/notificationService');
+
+    await sendNotification(
+      requestRow.patient_id,
+      'sistema',
+      'Caso descartado (Requisitos)',
+      `Tu caso ha sido descartado amistosamente porque no cumple con los requisitos académicos actuales de ${studentName}. Tu perfil sigue activo para que otros estudiantes te contacten.`
+    );
+
+    await logActivity(requestRow.student_id, studentName, 'Caso descartado', 'Solicitudes', 'Motivo: No cumple requisitos académicos');
+
+    return res.json({ success: true, message: 'Caso descartado exitosamente. El paciente no fue penalizado.' });
+  } catch(e) {
+    console.error('Error descartando paciente:', e);
+    return res.status(500).json({ success: false, message: 'Error interno' });
+  }
+}
+
 module.exports = {
   sendRequest,
   getStudentRequests,
@@ -395,5 +479,6 @@ module.exports = {
   rejectRequest,
   getAllRequests,
   dischargePatient,
-  abandonPatient
+  abandonPatient,
+  discardPatient
 };

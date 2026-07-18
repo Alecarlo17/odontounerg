@@ -30,4 +30,7 @@ router.put('/:id/discharge', requestController.dischargePatient);
 // Marcar paciente como abandonado
 router.put('/:id/abandon', requestController.abandonPatient);
 
+// Descartar paciente por no cumplir requisitos
+router.put('/:id/discard', requestController.discardPatient);
+
 module.exports = router;

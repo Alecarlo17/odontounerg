@@ -16,7 +16,7 @@ async function createRequest(studentId, patientId, message = '') {
       .select('id, status')
       .eq('student_id', studentId)
       .eq('patient_id', patientId)
-      .in('status', ['pending', 'accepted', 'active'])
+      .in('status', ['pending', 'accepted', 'active', 'in_treatment'])
       .limit(1);
 
     if (existError) throw existError;
@@ -50,12 +50,18 @@ async function getStudentRequests(studentId, status = null) {
       .from('requests')
       .select(`
         *,
-        patient:patient_id(full_name, email, phone)
+        patient:patient_id(full_name, email, phone, avatar_url)
       `)
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
-    if (status) query = query.eq('status', status);
+    if (status) {
+      if (status === 'accepted') {
+        query = query.in('status', ['accepted', 'active', 'in_treatment']);
+      } else {
+        query = query.eq('status', status);
+      }
+    }
 
     const { data, error } = await query;
     if (error) throw error;
@@ -75,15 +81,36 @@ async function getPatientRequests(patientId, status = null) {
       .from('requests')
       .select(`
         *,
-        student:student_id(full_name, email, phone)
+        student:student_id(full_name, email, phone, avatar_url)
       `)
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false });
 
-    if (status) query = query.eq('status', status);
+    if (status) {
+      if (status === 'accepted') {
+        query = query.in('status', ['accepted', 'active', 'in_treatment']);
+      } else {
+        query = query.eq('status', status);
+      }
+    }
 
     const { data, error } = await query;
     if (error) throw error;
+    
+    if (data && data.length > 0) {
+      const studentIds = data.map(r => r.student_id);
+      const { data: ratingsData } = await db.supabase
+        .from('ratings')
+        .select('student_id')
+        .eq('patient_id', patientId)
+        .in('student_id', studentIds);
+      
+      const ratedSet = new Set((ratingsData || []).map(r => r.student_id));
+      for (const req of data) {
+        req.rated = ratedSet.has(req.student_id);
+      }
+    }
+
     return data || [];
   } catch (e) {
     console.error('Error en getPatientRequests:', e);
@@ -161,6 +188,26 @@ async function markAbandoned(requestId, reason = '') {
 }
 
 /**
+ * Descartar solicitud por requisitos académicos (sin penalización)
+ */
+async function markDiscarded(requestId, reason = '') {
+  try {
+    const { error } = await db.supabase
+      .from('requests')
+      .update({
+        status: 'rejected'
+      })
+      .eq('id', requestId);
+
+    if (error) throw error;
+    return true;
+  } catch(e) {
+    console.error('Error en markDiscarded:', e);
+    return false;
+  }
+}
+
+/**
  * Obtener todas las solicitudes (para administración)
  */
 async function getAllRequests() {
@@ -192,7 +239,7 @@ async function getActivePatientsCount(studentId) {
       .from('requests')
       .select('*', { count: 'exact', head: true })
       .eq('student_id', studentId)
-      .in('status', ['accepted', 'active']);
+      .in('status', ['accepted', 'active', 'in_treatment']);
 
     if (error) throw error;
     return count || 0;
@@ -209,6 +256,7 @@ module.exports = {
   updateRequestStatus,
   transitionToActive,
   markAbandoned,
+  markDiscarded,
   getAllRequests,
   getActivePatientsCount
 };

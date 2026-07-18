@@ -251,7 +251,7 @@ function getUrlParam(name) {
  * @returns {string} HTML
  */
 function avatarHTML(name, url, size = '') {
-  if (url) {
+  if (url && url !== 'null') {
     return `<img src="${url}" alt="${name}" class="avatar ${size}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="avatar avatar-placeholder ${size}" style="display:none">${getInitials(name)}</span>`;
   }
   return `<span class="avatar avatar-placeholder ${size}">${getInitials(name)}</span>`;

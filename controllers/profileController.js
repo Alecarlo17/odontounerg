@@ -38,7 +38,8 @@ async function updateStudentData(req, res) {
         section: data.section, 
         academic_year: data.academicYear, 
         treatments_needed: data.treatments, 
-        bio: data.bio
+        bio: data.bio,
+        gender: data.gender
       })
       .eq('id', userId);
 
@@ -88,17 +89,19 @@ async function updatePatientStatus(req, res) {
 async function getStudentPublicProfile(req, res) {
   const { studentId } = req.params;
   try {
-    const { data: profile } = await db.supabase.from('profiles').select('*').eq('id', studentId).maybeSingle();
-    const { data: student } = await db.supabase.from('students').select('*').eq('id', studentId).maybeSingle();
-    
-    // Obtener promedio de calificaciones
-    const avgData = await RatingsModel.getStudentAverage(studentId);
-    
-    // Obtener pacientes activos
-    const activeCount = await RequestsModel.getActivePatientsCount(studentId);
-
-    // Obtener lista de calificaciones
-    const ratings = await RatingsModel.getStudentRatings(studentId);
+    const [
+      { data: profile },
+      { data: student },
+      avgData,
+      activeCount,
+      ratings
+    ] = await Promise.all([
+      db.supabase.from('profiles').select('*').eq('id', studentId).maybeSingle(),
+      db.supabase.from('students').select('*').eq('id', studentId).maybeSingle(),
+      RatingsModel.getStudentAverage(studentId),
+      RequestsModel.getActivePatientsCount(studentId),
+      RatingsModel.getStudentRatings(studentId)
+    ]);
 
     return res.json({ 
       success: true, 
@@ -120,8 +123,13 @@ async function getStudentPublicProfile(req, res) {
 async function getPatientProfile(req, res) {
   const { patientId } = req.params;
   try {
-    const { data: profile } = await db.supabase.from('profiles').select('*').eq('id', patientId).maybeSingle();
-    const { data: patient } = await db.supabase.from('patients').select('*').eq('id', patientId).maybeSingle();
+    const [
+      { data: profile },
+      { data: patient }
+    ] = await Promise.all([
+      db.supabase.from('profiles').select('*').eq('id', patientId).maybeSingle(),
+      db.supabase.from('patients').select('*').eq('id', patientId).maybeSingle()
+    ]);
     return res.json({ success: true, data: { profile, patient } });
   } catch(e) {
     console.error('Error en getPatientProfile:', e);

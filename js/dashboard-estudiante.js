@@ -42,7 +42,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupSidebar() {
   const name = currentUser.profile?.full_name ? formatShortName(currentUser.profile.full_name) : 'Estudiante';
   document.getElementById('sidebar-name').textContent = name;
-  document.getElementById('sidebar-avatar').textContent = getInitials(name);
+  const avatarContainer = document.getElementById('sidebar-avatar');
+  avatarContainer.className = 'avatar avatar-sm';
+  avatarContainer.innerHTML = avatarHTML(name, currentUser.profile?.avatar_url, 'avatar-sm');
 }
 
 /**
@@ -90,7 +92,7 @@ async function loadStats() {
       <div class="stat-icon orange"><i data-lucide="star"></i></div>
       <div class="stat-info">
         <div class="stat-label">Promedio de Calificación</div>
-        <div class="stat-value">${parseFloat(data.avgRating || 0).toFixed(1)}/5</div>
+        <div class="stat-value">${data.totalRatings > 0 ? parseFloat(data.avgRating || 0).toFixed(1) + '/5' : 'N/A'}</div>
       </div>
     </div>
     <div class="stat-card">
@@ -184,11 +186,20 @@ async function updateNotificationBadge() {
   updateBadge('appt-badge', apptCount);
   updateBadge('notif-badge', genCount);
 
-  const dot = document.getElementById('notif-dot');
-  if (dot) {
-    if (genCount > 0) dot.classList.remove('hidden');
-    else dot.classList.add('hidden');
+  const totalCount = reqCount + chatCount + apptCount + genCount;
+
+  const headerBadge = document.getElementById('header-notif-badge');
+  if (headerBadge) {
+    if (totalCount > 0) {
+      headerBadge.textContent = totalCount;
+      headerBadge.classList.remove('hidden');
+    } else {
+      headerBadge.classList.add('hidden');
+    }
   }
+
+  const baseTitle = 'OdontoUNERG | Panel Estudiante';
+  document.title = totalCount > 0 ? `(${totalCount}) ${baseTitle}` : baseTitle;
 }
 
 /**
@@ -270,11 +281,59 @@ async function loadPatients() {
   filterPatients();
 }
 
-/**
- * Filtrar pacientes
- */
-function filterPatients() {
-  const searchTerm = document.getElementById('search-patients').value.toLowerCase();
+  /**
+   * Cargar mis pacientes activos
+   */
+  async function loadMisPacientes() {
+    const container = document.getElementById('mis-pacientes-list');
+    if (!container) return;
+    
+    container.innerHTML = '<div style="text-align:center;padding:2rem;"><div class="spinner"></div></div>';
+    
+    try {
+      const requests = await getStudentRequests(currentUser.user.id, null);
+      const activeRequests = requests.filter(r => r.status === 'accepted' || r.status === 'active');
+      
+      if (activeRequests.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="users"></i></div><p class="empty-state-text">No tienes pacientes activos actualmente.</p></div>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+      }
+      
+      container.innerHTML = activeRequests.map(req => {
+        const p = req.patient;
+        return `
+          <div style="display:flex;align-items:center;padding:1rem;border-bottom:1px solid var(--border);gap:1rem;">
+            ${p?.avatar_url ? `<img src="${p.avatar_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">` : `<div style="width:48px;height:48px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:1.2rem;">${getInitials(p?.full_name)}</div>`}
+            <div style="flex:1;">
+              <h4 style="margin:0;font-size:1rem;color:var(--text-main);">${escapeHTML(p?.full_name || 'Paciente')}</h4>
+              <p style="margin:0;font-size:0.85rem;color:var(--text-secondary);">${escapeHTML(req.treatment_type || 'Tratamiento no especificado')}</p>
+            </div>
+            <button class="btn btn-sm btn-outline" onclick="viewPatientProfile('${req.patient_id}'); document.getElementById('modal-mis-pacientes').classList.remove('active');">Ver Perfil</button>
+          </div>
+        `;
+      }).join('');
+      
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (e) {
+      container.innerHTML = '<div class="empty-state"><p class="empty-state-text" style="color:var(--danger);">Error al cargar pacientes</p></div>';
+    }
+  }
+
+  /**
+   * Filtrar pacientes
+   */
+  let debounceTimer;
+  window.debouncedFilter = function() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      filterPatients();
+    }, 300);
+  };
+
+  function filterPatients() {
+  const searchEl = document.getElementById('search-patients');
+  const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
   const sexo = document.getElementById('filter-sexo')?.value;
   const orden = document.getElementById('filter-orden')?.value;
   const treatment = document.getElementById('filter-treatment')?.value || 'all';
@@ -291,10 +350,12 @@ function filterPatients() {
 
   // Filtro por búsqueda
   if (searchTerm) {
-    filtered = filtered.filter(p => 
-      p.full_name?.toLowerCase().includes(searchTerm) ||
-      p.patients?.consultation_reason?.toLowerCase().includes(searchTerm)
-    );
+    filtered = filtered.filter(p => {
+      const name = p.full_name || '';
+      const reason = p.patients?.consultation_reason || '';
+      return name.toLowerCase().includes(searchTerm) || 
+             reason.toLowerCase().includes(searchTerm);
+    });
   }
 
   // Filtro por sexo
@@ -302,17 +363,23 @@ function filterPatients() {
     filtered = filtered.filter(p => p.patients?.gender === sexo);
   }
 
-  // Ordenamiento
-  if (orden === 'fecha') {
-    // Ordenar por fecha de registro (más recientes primero)
-    filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-  } else if (orden === 'edad') {
-    filtered.sort((a, b) => {
+  // Ordenamiento con prioridad de Reputación (relegar abandonos)
+  filtered.sort((a, b) => {
+    const abA = a.stats?.abandoned || 0;
+    const abB = b.stats?.abandoned || 0;
+    if (abA !== abB) {
+      return abA - abB; // Menor cantidad de abandonos primero
+    }
+
+    if (orden === 'edad') {
       const ageA = a.patients?.birth_date ? calculateAge(a.patients.birth_date) : (a.patients?.age || 0);
       const ageB = b.patients?.birth_date ? calculateAge(b.patients.birth_date) : (b.patients?.age || 0);
       return ageB - ageA;
-    });
-  }
+    } else {
+      // Por defecto o 'fecha': más recientes primero
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    }
+  });
 
   renderPatients(filtered);
 }
@@ -342,9 +409,16 @@ function renderPatients(patients) {
           ${p.avatar_url 
             ? `<img src="${p.avatar_url}" class="patient-card-avatar" alt="${p.full_name}">`
             : `<span class="avatar avatar-placeholder" style="width:48px;height:48px;font-size:1rem;">${getInitials(p.full_name)}</span>`}
-          <div>
-            <div class="patient-card-name">${escapeHTML(formatShortName(p.full_name))}</div>
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div class="patient-card-name">${escapeHTML(formatShortName(p.full_name))}</div>
+            </div>
             <div class="patient-card-meta">${age} años ${patient?.gender ? '· ' + patient.gender : ''}</div>
+            <div style="margin-top:0.35rem;font-size:0.75rem;color:var(--text-secondary);">
+              <strong>Historial clínico:</strong> 
+              <span style="color:var(--success-color);font-weight:bold;">${p.stats?.completed || 0} Completado</span>, 
+              <span style="color:var(--danger-color);font-weight:bold;">${p.stats?.abandoned || 0} Abandonado</span>
+            </div>
           </div>
         </div>
         <div class="patient-card-body">
@@ -355,7 +429,7 @@ function renderPatients(patients) {
             <div><strong>Dolor:</strong> ${escapeHTML(patient?.intensidad_dolor || 'N/A')}</div>
           </div>
 
-          ${p.phone ? `<p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem">📞 ${escapeHTML(p.phone)}</p>` : ''}
+
         </div>
         <div class="patient-card-footer">
           <button class="btn btn-primary btn-sm" onclick="openSolicitudModal('${p.id}', '${escapeHTML(formatShortName(p.full_name))}', '${escapeHTML(patient?.consultation_reason || '')}')">Enviar Solicitud</button>
@@ -424,13 +498,21 @@ async function loadStudentRequestsList(status = null) {
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
           <button class="btn btn-sm btn-success" onclick="openDarAltaModal('${req.id}', '${req.patient_id}')">🏥 Dar de Alta</button>
           <button class="btn btn-sm btn-outline" onclick="openAbandonModal('${req.id}', '${escapeHTML(name)}')">⚠ Abandono</button>
+          <button class="btn btn-sm btn-outline" style="border-color:#64748b; color:#64748b;" onclick="handleConfirmDiscard('${req.id}', '${escapeHTML(name)}')">✖ Descartar</button>
+        </div>`;
+    } else if (req.status === 'completed') {
+      actionsStr = `
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.5rem;">
+          <button class="btn btn-sm btn-outline" style="border-color:var(--primary);color:var(--primary);" onclick="generateMedicalCertificate('${req.id}')">
+            <i data-lucide="award" style="width:14px;height:14px;margin-right:4px;"></i> Descargar Certificado
+          </button>
         </div>`;
     }
 
     return `
       <div class="card" style="margin-bottom:0.75rem;animation:fadeIn 0.4s ease;">
         <div class="card-body" style="display:flex;align-items:center;gap:1rem;">
-          <span class="avatar avatar-placeholder">${getInitials(name)}</span>
+          ${avatarHTML(name, req.patient?.avatar_url)}
           <div style="flex:1">
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <strong>${escapeHTML(name)}</strong>
@@ -476,11 +558,11 @@ async function handleSubmitDischarge(event) {
   if (ok) {
     showLoading(true);
     try {
-      // 1. Registrar evaluación de responsabilidad (sin rating numérico, rating = 5 por defecto si la base de datos lo requiere)
+      // 1. Registrar evaluación de responsabilidad
       await fetch('/api/ratings/patient', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: currentUser.user.id, patientId, rating: 5, responsibility, comment })
+        body: JSON.stringify({ studentId: currentUser.user.id, patientId, rating: 0, responsibility, comment })
       });
 
       // 2. Dar de alta
@@ -528,17 +610,12 @@ async function loadAppointmentsList(status = null) {
         <div class="empty-state-icon"><i data-lucide="calendar"></i></div>
         <p class="empty-state-title">Sin citas</p>
         <p class="empty-state-text">No tiene citas en esta categoría</p>
-        <button class="btn btn-primary" style="margin-top:1rem" onclick="openNewAppointmentModal()">Nueva Cita</button>
       </div>
     `;
     return;
   }
 
-  container.innerHTML = `
-    <div style="text-align:right;margin-bottom:1rem;">
-      <button class="btn btn-primary btn-sm" onclick="openNewAppointmentModal()">+ Nueva Cita</button>
-    </div>
-  ` + appointments.map(a => renderAppointmentCard(a, currentUser.user.id)).join('');
+  container.innerHTML = appointments.map(a => renderAppointmentCard(a, currentUser.user.id)).join('');
 }
 
 function showAppointmentTab(status) {
@@ -623,10 +700,8 @@ async function loadChatConversations() {
   }
 
   container.innerHTML = conversations.map(c => `
-    <div class="chat-item ${currentConversationId === c.conversationId ? 'active' : ''}" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}')">
-      ${c.otherUser?.avatar_url 
-        ? `<img src="${c.otherUser.avatar_url}" class="chat-item-avatar" alt="${escapeHTML(formatShortName(c.otherUser.full_name))}">`
-        : `<div class="chat-item-avatar-placeholder">${getInitials(c.otherUser?.full_name)}</div>`}
+    <div class="chat-item" onclick="openChat('${c.conversationId}', '${c.otherUser?.id}', '${escapeHTML(formatShortName(c.otherUser?.full_name) || '')}', '${c.otherUser?.avatar_url || ''}')">
+      ${avatarHTML(c.otherUser?.full_name, c.otherUser?.avatar_url)}
       <div class="chat-item-info">
         <div class="chat-item-name">${escapeHTML(formatShortName(c.otherUser?.full_name) || 'Usuario')}</div>
         <div class="chat-item-last">${c.lastMessage ? escapeHTML(c.lastMessage.content) : 'Sin mensajes'}</div>
@@ -642,8 +717,11 @@ async function loadChatConversations() {
 /**
  * Abrir un chat
  */
-async function openChat(conversationId, otherUserId, otherName) {
+async function openChat(conversationId, otherUserId, otherName, otherAvatar) {
   currentConversationId = conversationId;
+
+  const sidebar = document.querySelector('.chat-sidebar');
+  if (sidebar) sidebar.classList.add('hidden-mobile');
 
   // Marcar como leídos
   await markMessagesAsRead(conversationId, currentUser.user.id);
@@ -665,7 +743,8 @@ async function openChat(conversationId, otherUserId, otherName) {
   // Renderizar chat
   document.getElementById('chat-main-panel').innerHTML = `
     <div class="chat-main-header">
-      <span class="avatar avatar-placeholder avatar-sm">${getInitials(otherName)}</span>
+      <button class="chat-header-btn mobile-only" style="margin-right:0.5rem;" onclick="document.querySelector('.chat-sidebar').classList.remove('hidden-mobile')" title="Volver a la lista"><i data-lucide="arrow-left" style="width:20px;height:20px;"></i></button>
+      ${avatarHTML(otherName, otherAvatar, 'avatar-sm')}
       <div>
         <div class="chat-main-name">${escapeHTML(otherName)}</div>
       </div>
@@ -731,22 +810,24 @@ async function handleChatImageUpload(input) {
  * Cargar historial de tratamientos
  */
 async function loadTreatmentsHistory() {
-  const { data: treatments } = await supabase
-    .from('treatments')
-    .select('*, patient:patient_id(full_name)')
-    .eq('student_id', currentUser.user.id)
-    .order('created_at', { ascending: false });
+  try {
+    const res = await fetch(`/api/dashboard/treatments/student/${currentUser.user.id}`);
+    const json = await res.json();
+    const treatments = json.data || [];
 
-  const container = document.getElementById('treatments-list');
-  if (!treatments || treatments.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p><p class="empty-state-text">Aún no hay tratamientos registrados</p></div>';
-    return;
+    const container = document.getElementById('treatments-list');
+    if (!treatments || treatments.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-state-icon"><i data-lucide="clipboard-list"></i></div><p class="empty-state-title">Sin tratamientos</p><p class="empty-state-text">Aún no hay tratamientos registrados</p></div>';
+      return;
+    }
+
+  const header = document.getElementById('tratamientos-header');
+  if (header) {
+    header.innerHTML = `
+      <h3 class="card-title">Historial Clínico de Pacientes</h3>
+    `;
   }
-
   container.innerHTML = `
-    <div style="text-align:right;margin-bottom:1rem;">
-      <button class="btn btn-secondary btn-sm" onclick="handleDownloadTreatments()">Descargar Reporte</button>
-    </div>
     <div class="table-wrapper">
       <table class="data-table">
         <thead>
@@ -766,12 +847,12 @@ async function loadTreatmentsHistory() {
               en_proceso: { text: 'En proceso', class: 'badge-primary' },
               finalizado: { text: 'Finalizado', class: 'badge-success' }
             }[t.estado] || { text: t.estado, class: 'badge-gray' };
-            const patName = t.patient?.full_name ? formatShortName(t.patient.full_name) : 'Paciente';
+            const patName = formatShortName(t.other_name || 'Paciente');
             return `
               <tr>
                 <td>
                   <div style="display:flex;align-items:center;gap:0.75rem;">
-                    <span class="avatar avatar-placeholder" style="width:32px;height:32px;font-size:0.8rem">${getInitials(patName)}</span>
+                    ${avatarHTML(patName, t.other_avatar_url)}
                     <span>${escapeHTML(patName)}</span>
                   </div>
                 </td>
@@ -779,13 +860,13 @@ async function loadTreatmentsHistory() {
                 <td>
                   <span class="badge badge-gray" style="cursor:pointer" onclick="openSesionesModal('${t.id}', '${escapeHTML(t.tratamiento)}')">📋 ${t.sesiones_count || 0} sesiones</span>
                 </td>
-                <td>${new Date(t.fecha).toLocaleDateString('es-VE')}</td>
+                <td>${formatDate(t.fecha)}</td>
                 <td><span class="badge ${estadoInfo.class}">${estadoInfo.text}</span></td>
                 <td style="text-align:right">
                   <div style="display:flex;gap:0.4rem;justify-content:flex-end;">
                     ${t.estado !== 'finalizado' ? `
                       <button class="btn btn-sm btn-primary" onclick="openSesionesModal('${t.id}', '${escapeHTML(t.tratamiento)}')">+ Sesión</button>
-                      <button class="btn btn-sm btn-outline" onclick="markTreatmentComplete('${t.id}')">Finalizar</button>
+                      <button class="btn btn-sm btn-outline" onclick="markTreatmentComplete('${t.id}', '${t.patient_id}')">Finalizar</button>
                     ` : `<span style="color:var(--success);font-size:0.85rem;">✓ Completado</span>`}
                   </div>
                 </td>
@@ -797,6 +878,9 @@ async function loadTreatmentsHistory() {
     </div>
   `;
   if (typeof lucide !== 'undefined') lucide.createIcons();
+  } catch (e) {
+    console.error('Error fetching treatments history:', e);
+  }
 }
 
 async function handleDownloadTreatments() {
@@ -817,7 +901,7 @@ async function handleDownloadTreatments() {
   showLoading(false);
 }
 
-async function markTreatmentComplete(treatmentId) {
+async function markTreatmentComplete(treatmentId, patientId) {
   const ok = await confirmAction('Finalizar Tratamiento', '¿Está seguro que desea marcar este tratamiento como finalizado?');
   if (ok) {
     showLoading(true);
@@ -832,6 +916,21 @@ async function markTreatmentComplete(treatmentId) {
       if (json.success) {
         showToast('Tratamiento finalizado exitosamente', 'success');
         loadTreatmentsHistory();
+        
+        if (patientId) {
+          setTimeout(async () => {
+            const discharge = await confirmAction('Dar de alta', 'Tratamiento finalizado. ¿Este fue el último tratamiento del paciente? ¿Deseas darle de alta y cerrar el caso ahora mismo?');
+            if (discharge) {
+              const allReqs = await getStudentRequests(currentUser.user.id);
+              const activeReq = allReqs.find(r => r.patient_id === patientId && r.status === 'active');
+              if (activeReq) {
+                openDarAltaModal(activeReq.id, patientId);
+              } else {
+                showToast('No se encontró un caso activo para este paciente.', 'warning');
+              }
+            }
+          }, 500);
+        }
       } else {
         showToast(json.message || 'Error al finalizar', 'error');
       }
@@ -871,7 +970,13 @@ async function loadRatings() {
 
     // Update badge
     const avgBadge = document.getElementById('ratings-average-badge');
-    if (avgBadge) avgBadge.textContent = `⭐ ${parseFloat(avgRating).toFixed(1)} (${totalCount})`;
+    if (avgBadge) {
+      if (totalCount > 0) {
+        avgBadge.textContent = `⭐ ${parseFloat(avgRating).toFixed(1)} (${totalCount})`;
+      } else {
+        avgBadge.textContent = `⭐ N/A`;
+      }
+    }
 
     const container = document.getElementById('ratings-list');
     if (!ratings || ratings.length === 0) {
@@ -907,20 +1012,33 @@ async function loadProfileData() {
 
   document.getElementById('profile-name-display').textContent = formatShortName(profile.full_name);
   document.getElementById('profile-email-display').textContent = profile.email;
+  const avatarUrl = profile.avatar_url !== 'null' ? profile.avatar_url : null;
   document.getElementById('profile-avatar').textContent = getInitials(profile.full_name);
 
-  if (profile.avatar_url) {
+  if (avatarUrl) {
     document.getElementById('profile-avatar-container').innerHTML = `
-      <img src="${profile.avatar_url}" class="avatar avatar-xl" alt="Foto de perfil" style="cursor:pointer">
+      <img src="${avatarUrl}" class="avatar avatar-xl" alt="Foto de perfil" style="cursor:pointer">
       <div style="position:absolute;bottom:0;right:0;background:var(--primary);color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid white;"><i data-lucide="camera" style="width:12px;height:12px;"></i></div>
     `;
   }
 
-  document.getElementById('prof-name').value = profile.full_name || '';
-  document.getElementById('prof-phone').value = profile.phone || '';
-  document.getElementById('prof-disponibilidad').value = profile.disponibilidad || 'disponible';
-  document.getElementById('prof-section').value = roleData?.section || '';
-  document.getElementById('prof-year').value = roleData?.academic_year || '';
+  const nameInput = document.getElementById('prof-name');
+  if (nameInput) nameInput.value = profile.full_name || '';
+  
+  const phoneInput = document.getElementById('prof-phone');
+  if (phoneInput) phoneInput.value = profile.phone || '';
+  
+  const dispInput = document.getElementById('prof-disponibilidad');
+  if (dispInput) dispInput.value = profile.disponibilidad || 'disponible';
+  
+  const secInput = document.getElementById('prof-section');
+  if (secInput) secInput.value = roleData?.section || '';
+  
+  const yearInput = document.getElementById('prof-year');
+  if (yearInput) yearInput.value = roleData?.academic_year || '';
+  
+  const genderSel = document.getElementById('prof-gender');
+  if (genderSel) genderSel.value = roleData?.gender || '';
 }
 
 async function handleUpdateProfile(event) {
@@ -936,6 +1054,7 @@ async function handleUpdateProfile(event) {
   await updateStudentData(userId, {
     section: document.getElementById('prof-section').value,
     academicYear: document.getElementById('prof-year').value,
+    gender: document.getElementById('prof-gender').value,
     treatments: [],
     bio: ''
   });
@@ -983,8 +1102,7 @@ async function viewPatientProfile(patientId) {
     if (json.success && json.data) {
       const p = json.data;
       document.getElementById('perfil-paciente-nombre').textContent = formatShortName(p.full_name);
-      document.getElementById('perfil-paciente-avatar').innerHTML = 
-        `<div class="avatar avatar-placeholder avatar-xl" style="font-size: 2rem;">${getInitials(p.full_name)}</div>`;
+      document.getElementById('perfil-paciente-avatar').innerHTML = avatarHTML(p.full_name, p.avatar_url, 'avatar-xl');
       
       const badgeClass = p.disponibilidad === 'disponible' ? 'badge-success' : 'badge-warning';
       const ageNum = p.patients?.birth_date ? calculateAge(p.patients.birth_date) : p.patients?.age;
@@ -995,7 +1113,7 @@ async function viewPatientProfile(patientId) {
          <span class="badge badge-primary">${ageText}</span>`;
          
       document.getElementById('perfil-paciente-genero').textContent = p.gender || 'No especificado';
-      document.getElementById('perfil-paciente-telefono').textContent = p.p_phone || p.phone || 'No especificado';
+      document.getElementById('perfil-paciente-telefono').innerHTML = '<span style="color:var(--text-secondary);font-style:italic;">Oculto por privacidad</span>';
       document.getElementById('perfil-paciente-direccion').textContent = p.direccion || 'No especificada';
       document.getElementById('perfil-paciente-fecha-registro').textContent = p.created_at ? new Date(p.created_at).toLocaleDateString() : 'No especificada';
       
@@ -1142,6 +1260,34 @@ async function handleConfirmAbandon(event) {
       loadStats();
     } else {
       showToast(json.message || 'Error al registrar abandono', 'error');
+    }
+  } catch(e) {
+    showLoading(false);
+    showToast('Error de conexión', 'error');
+  }
+}
+
+async function handleConfirmDiscard(requestId, patientName) {
+  const ok = await confirmAction(
+    'Descartar por Requisitos',
+    `¿Estás seguro de que deseas descartar a ${patientName} por no cumplir con tus requisitos académicos?\n\nEl paciente será devuelto al directorio SIN ser penalizado por abandono.\n\nNOTA: Esta opción solo es válida si aún no has registrado ninguna cita ni tratamiento.`
+  );
+  if (!ok) return;
+
+  showLoading(true);
+  try {
+    const res = await fetch(`/api/requests/${requestId}/discard`, {
+      method: 'PUT'
+    });
+    const json = await res.json();
+    showLoading(false);
+    
+    if (json.success) {
+      showToast('Caso descartado exitosamente', 'success');
+      loadStudentRequestsList();
+      loadStats();
+    } else {
+      showToast(json.message || 'Error al descartar el caso', 'error');
     }
   } catch(e) {
     showLoading(false);

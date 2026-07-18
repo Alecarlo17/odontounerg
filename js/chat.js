@@ -26,8 +26,8 @@ async function getConversations(userId) {
           avatar_url: otherUser?.avatar_url,
           disponibilidad: 'disponible'
         },
-        lastMessage: { content: '...' },
-        unreadCount: 0
+        lastMessage: c.lastMessage || null,
+        unreadCount: c.unreadCount || 0
       };
     });
   } catch(e) {
@@ -72,18 +72,62 @@ async function sendMessage(conversationId, senderId, content) {
  * Enviar imagen en chat
  */
 async function sendChatImage(file, conversationId, senderId) {
-  try {
-    const formData = new FormData();
-    formData.append('image', file);
-    formData.append('conversationId', conversationId);
-    formData.append('senderId', senderId);
+  if (!file) return;
 
-    const res = await fetch('/api/chat/messages/image', { method: 'POST', body: formData });
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('La imagen no puede exceder 5MB', 'error');
+    return;
+  }
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Solo se permiten archivos de imagen', 'error');
+    return;
+  }
+
+  showLoading(true);
+  try {
+    const client = window.supabaseClient || supabase;
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${conversationId}/${Date.now()}.${fileExt}`;
+    
+    // Si la cubeta 'chat_images' no existe o da error de RLS, usamos 'avatars' como respaldo temporal
+    let bucket = 'chat_images';
+    let uploadRes = await client.storage.from(bucket).upload(fileName, file);
+
+    if (uploadRes.error) {
+      console.warn("Fallo en chat_images, intentando con bucket 'avatars'...", uploadRes.error);
+      bucket = 'avatars';
+      uploadRes = await client.storage.from(bucket).upload(fileName, file);
+    }
+
+    if (uploadRes.error) {
+      console.error("Error subiendo imagen a storage:", uploadRes.error);
+      throw new Error('Error subiendo imagen al Storage');
+    }
+
+    const { data: urlData } = client.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    const imageUrl = urlData.publicUrl;
+
+    const res = await fetch('/api/chat/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId, senderId, content: `[Imagen] ${imageUrl}` })
+    });
+    
     const json = await res.json();
-    return json.success;
-  } catch(e) {
-    showToast('Error al enviar imagen', 'error');
+    if (!json.success) throw new Error('Error guardando el mensaje en la BD');
+    
+    showToast('Imagen enviada', 'success');
+    return true;
+  } catch (err) {
+    console.error("sendChatImage Error:", err);
+    showToast('Error al procesar la imagen', 'error');
     return false;
+  } finally {
+    showLoading(false);
   }
 }
 
@@ -142,11 +186,17 @@ function renderMessage(msg, currentUserId) {
   const time = new Date(msg.created_at).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 
   let contentHTML;
-  if (msg.content && msg.content.startsWith('📷 Imagen: ')) {
-    const url = msg.content.replace('📷 Imagen: ', '');
-    contentHTML = `<div class="message-image"><a href="${url}" target="_blank"><img src="${url}" alt="Imagen" loading="lazy" style="max-width:220px;border-radius:8px;"></a></div>`;
+  const content = msg.content || '';
+  if (content.startsWith('📷 Imagen: ') || content.startsWith('[Imagen] ')) {
+    const url = content.replace('📷 Imagen: ', '').replace('[Imagen] ', '').trim();
+    contentHTML = `
+      <div class="message-bubble message-image-container" style="padding:0.25rem;background:transparent;">
+        <a href="${url}" target="_blank">
+          <img src="${url}" alt="Imagen enviada" loading="lazy" style="max-width:100%;height:auto;max-height:220px;border-radius:12px;display:block;box-shadow:var(--shadow-sm);">
+        </a>
+      </div>`;
   } else {
-    contentHTML = `<div class="message-bubble">${escapeHTML(msg.content || '')}</div>`;
+    contentHTML = `<div class="message-bubble">${escapeHTML(content)}</div>`;
   }
 
   return `

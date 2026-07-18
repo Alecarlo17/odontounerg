@@ -329,29 +329,17 @@
       // Check session and update UI asynchronously to avoid blocking
       (async () => {
         try {
-          const offlineSession = localStorage.getItem('offline_session');
           let isLoggedIn = false;
           let userName = '';
           let userRole = '';
-          
-          if (offlineSession) {
-            const s = JSON.parse(offlineSession);
-            if (s && s.user) {
-              isLoggedIn = true;
-              userName = s.user.full_name || s.user.email;
-              userRole = s.user.role;
-            }
-          } else {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-               // Verificar validez real del token con el servidor
-               const { data: { user }, error } = await supabase.auth.getUser();
-               if (user && !error) {
-                 isLoggedIn = true;
-                 userName = user.user_metadata?.full_name || "Mi Perfil";
-                 userRole = user.user_metadata?.role || '';
-               }
-            }
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+             const { data: { user }, error } = await supabase.auth.getUser();
+             if (user && !error) {
+               isLoggedIn = true;
+               userName = user.user_metadata?.full_name || "Mi Perfil";
+               userRole = user.user_metadata?.role || '';
+             }
           }
 
           if (isLoggedIn) {

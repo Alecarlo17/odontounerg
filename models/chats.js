@@ -47,22 +47,42 @@ async function getConversations(userId) {
     }
 
     // 4. Mapear al formato esperado
-    return reqs.map(r => {
+    const finalConversations = [];
+    for (const r of reqs) {
       const conv = convsByReqId[r.id];
-      if (!conv) return null;
+      if (!conv) continue;
       
       const student = Array.isArray(r.student) ? r.student[0] : r.student;
       const patient = Array.isArray(r.patient) ? r.patient[0] : r.patient;
 
-      return {
-        id: conv.id, // REAL conversation ID
+      const { data: lastMsg } = await db.supabase
+        .from('messages')
+        .select('content, created_at')
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const { count: unreadCount } = await db.supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('tipo', 'mensaje')
+        .eq('referencia_id', conv.id)
+        .eq('leida', false);
+
+      finalConversations.push({
+        id: conv.id,
         student_id: r.student_id,
         patient_id: r.patient_id,
         status: r.status,
         student,
-        patient
-      };
-    }).filter(Boolean);
+        patient,
+        lastMessage: lastMsg && lastMsg.length > 0 ? lastMsg[0] : null,
+        unreadCount: unreadCount || 0
+      });
+    }
+
+    return finalConversations;
   } catch (e) {
     console.error('Error en getConversations:', e);
     return [];
@@ -150,7 +170,7 @@ async function notifyReceiver(conversationId, senderId) {
       .from('notifications')
       .select('id')
       .eq('user_id', receiverId)
-      .eq('tipo', 'chat')
+      .eq('tipo', 'mensaje')
       .eq('referencia_id', conversationId)
       .eq('leida', false)
       .limit(1);
@@ -159,7 +179,7 @@ async function notifyReceiver(conversationId, senderId) {
       await db.supabase.from('notifications').insert({
         id: require('crypto').randomUUID(),
         user_id: receiverId,
-        tipo: 'chat',
+        tipo: 'mensaje',
         titulo: 'Nuevo mensaje',
         mensaje: 'Tienes un nuevo mensaje sin leer.',
         referencia_id: conversationId,
@@ -211,10 +231,9 @@ async function reportUser(reportData) {
       .insert({
         reporter_id: reportData.reporterId,
         reported_id: reportData.reportedId,
-        conversation_id: reportData.conversationId,
-        motivo: reportData.motivo,
-        observacion: reportData.observacion || null,
-        status: 'pendiente',
+        reason: reportData.motivo,
+        description: reportData.observacion || null,
+        status: 'pending',
         created_at
       });
 
@@ -233,18 +252,72 @@ async function getAllReports() {
   try {
     const { data, error } = await db.supabase
       .from('reports')
-      .select(`
-        *,
-        reporter:profiles!reports_reporter_id_fkey(full_name),
-        reported:profiles!reports_reported_id_fkey(full_name)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    
+    if (data) {
+      // Mapear el status de vuelta al español para el frontend
+      const reverseStatusMap = {
+        'pending': 'pendiente',
+        'reviewed': 'revisado',
+        'resolved': 'resuelto'
+      };
+      
+      for (let r of data) {
+        if (r.status && reverseStatusMap[r.status]) {
+          r.status = reverseStatusMap[r.status];
+        }
+        
+        // Mapear campos de inglés a español para el frontend
+        if (r.reason !== undefined) {
+          r.motivo = r.reason;
+        }
+        if (r.description !== undefined) {
+          r.observacion = r.description;
+        }
+        
+        if (r.reporter_id) {
+          const { data: rep } = await db.supabase.from('profiles').select('full_name').eq('id', r.reporter_id).single();
+          if (rep) r.reporter = rep;
+        }
+        if (r.reported_id) {
+          const { data: repd } = await db.supabase.from('profiles').select('full_name').eq('id', r.reported_id).single();
+          if (repd) r.reported = repd;
+        }
+      }
+    }
+    
     return data || [];
   } catch (e) {
     console.error('Error en getAllReports:', e);
     return [];
+  }
+}
+
+/**
+ * Actualizar estado de reporte
+ */
+async function updateReportStatus(reportId, status) {
+  try {
+    const statusMap = {
+      'pendiente': 'pending',
+      'revisado': 'reviewed',
+      'resuelto': 'resolved'
+    };
+    const dbStatus = statusMap[status] || status;
+
+    const { error } = await db.supabase
+      .from('reports')
+      .update({ status: dbStatus })
+      .eq('id', reportId);
+
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.error('Error en updateReportStatus:', e);
+    return false;
   }
 }
 
@@ -254,5 +327,6 @@ module.exports = {
   sendMessage,
   sendImageMessage,
   reportUser,
-  getAllReports
+  getAllReports,
+  updateReportStatus
 };

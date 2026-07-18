@@ -95,9 +95,9 @@
           <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Modo oscuro">
             <i data-lucide="moon" id="dark-mode-icon"></i>
           </button>
-          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones">
+          <button class="navbar-icon-btn" onclick="showSection('notificaciones')" title="Notificaciones" style="position:relative;">
             <i data-lucide="bell"></i>
-            <span class="notification-dot hidden" id="notif-dot"></span>
+            <span class="header-badge hidden" id="header-notif-badge">0</span>
           </button>
           <button class="navbar-icon-btn" onclick="showSection('chat')" title="Chat">
             <i data-lucide="message-circle"></i>
@@ -110,7 +110,8 @@
         <!-- ===== INICIO ===== -->
         <section id="section-inicio">
 
-          <div class="stats-grid" id="stats-grid"></div>
+          <div id="assigned-student-container"></div>
+          <div class="stats-grid" id="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));"></div>
 
           <div class="inicio-grid" id="inicio-grid">
             <!-- Caso activo -->
@@ -254,6 +255,7 @@
                         <option value="Masculino">Masculino</option>
                         <option value="Femenino">Femenino</option>
                         <option value="Otro">Otro</option>
+                        <option value="Prefiero no indicarlo">Prefiero no indicarlo</option>
                       </select>
                     </div>
                   </div>
@@ -389,7 +391,88 @@
     </div>
   </div>
 
-  <div id="sidebar-overlay" onclick="closeSidebarOverlay()"></div>
+  <!-- Modal Nuevo Caso -->
+  <div class="modal-overlay" id="modal-nuevo-caso">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Registrar Nuevo Caso</h3>
+        <button class="modal-close" onclick="closeModal('modal-nuevo-caso')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.95rem;">
+          Para buscar un nuevo estudiante, necesitamos que actualices el motivo de tu consulta actual y tu disponibilidad.
+        </p>
+        <form onsubmit="handleSubmitNuevoCaso(event)">
+          <div class="form-group">
+            <label class="form-label">Motivo de consulta *</label>
+            <select class="form-select" id="new-case-problema" required>
+              <option value="" disabled selected>Seleccione el motivo principal</option>
+              <option value="Dolor dental">Dolor dental</option>
+              <option value="Muela dañada o rota">Muela dañada o rota</option>
+              <option value="Caries">Caries</option>
+              <option value="Inflamación o infección">Inflamación o infección</option>
+              <option value="Sangrado de encías">Sangrado de encías</option>
+              <option value="Limpieza dental">Limpieza dental</option>
+              <option value="Extracción dental">Extracción dental</option>
+              <option value="Prótesis o dentadura">Prótesis o dentadura</option>
+              <option value="Odontopediatría">Odontopediatría</option>
+              <option value="Revisión general">Revisión general</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descripción breve *</label>
+            <textarea class="form-textarea" id="new-case-descripcion" rows="3" required placeholder="Describe brevemente lo que necesitas..."></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Disponibilidad de tiempo *</label>
+            <select class="form-select" id="new-case-disponibilidad" required>
+              <option value="mañanas">Solo en las mañanas</option>
+              <option value="tardes">Solo en las tardes</option>
+              <option value="fines_de_semana">Fines de semana</option>
+              <option value="flexible" selected>Horario flexible</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modal-nuevo-caso')">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Activar mi Perfil</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Perfil Estudiante -->
+  <div class="modal-overlay" id="modal-perfil-estudiante">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Perfil del Estudiante</h3>
+        <button class="modal-close" onclick="closeModal('modal-perfil-estudiante')"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="padding-top: 1rem;">
+        <div style="display:flex; gap:1.5rem; align-items:flex-start; margin-bottom: 1.5rem;">
+          <div id="perfil-estudiante-avatar"></div>
+          <div>
+            <h2 id="perfil-estudiante-nombre" style="margin:0 0 0.5rem 0; font-size:1.5rem;"></h2>
+            <div id="perfil-estudiante-badges" style="margin-bottom:0.75rem;"></div>
+            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.25rem;">
+              <strong>Cédula:</strong> <span id="perfil-estudiante-cedula"></span>
+            </div>
+            <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:0.25rem;">
+              <strong>Edad:</strong> <span id="perfil-estudiante-edad"></span>
+            </div>
+            <div style="font-size:0.9rem; margin-top: 0.5rem;">
+              <span id="perfil-estudiante-disponibilidad"></span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Tratamientos que realiza</h4>
+          <div id="perfil-estudiante-tratamientos" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="/js/libs/lucide.js"></script>
@@ -437,9 +520,9 @@
     function showApptTab(status) {
       document.querySelectorAll('#section-citas .tab').forEach(t => t.classList.remove('active'));
       event?.target?.classList?.add('active');
-      if (typeof loadPatientAppointments === 'function') {
+      if (typeof loadAppointmentsList === 'function') {
         sectionLoaded['citas'] = false;
-        loadPatientAppointments(status === 'todas' ? null : status);
+        loadAppointmentsList(status === 'todas' ? null : status);
       }
     }
   </script>

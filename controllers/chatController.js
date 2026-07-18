@@ -109,11 +109,30 @@ async function getAllReports(req, res) {
   return res.json({ success: true, data: reports });
 }
 
+/**
+ * Actualizar estado de reporte
+ */
+async function updateReportStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  if (!status || !['pendiente', 'revisado', 'resuelto'].includes(status)) {
+    return res.status(400).json({ success: false, message: 'Estado inválido' });
+  }
+
+  const success = await ChatsModel.updateReportStatus(id, status);
+  if (!success) {
+    return res.status(500).json({ success: false, message: 'Error al actualizar reporte' });
+  }
+  return res.json({ success: true, message: 'Estado actualizado' });
+}
+
 module.exports = {
   getConversations,
   getMessages,
   markMessagesAsRead,
   sendMessage,
   reportUser,
-  getAllReports
+  getAllReports,
+  updateReportStatus
 };

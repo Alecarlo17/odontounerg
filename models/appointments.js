@@ -49,13 +49,13 @@ async function checkDuplicateAppointment(studentId, patientId, dateStr, duration
       .from('requests')
       .select('id')
       .eq('student_id', studentId)
-      .in('status', ['accepted', 'active']);
+      .in('status', ['accepted', 'active', 'in_treatment']);
 
     const { data: patientRequests } = await db.supabase
       .from('requests')
       .select('id')
       .eq('patient_id', patientId)
-      .in('status', ['accepted', 'active']);
+      .in('status', ['accepted', 'active', 'in_treatment']);
 
     const studentReqIds = (studentRequests || []).map(r => r.id);
     const patientReqIds = (patientRequests || []).map(r => r.id);

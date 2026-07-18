@@ -34,7 +34,7 @@ async function countUnread(req, res) {
       .eq('leida', false);
 
     if (categoria === 'solicitudes') {
-      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected']);
+      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected', 'aceptada', 'rechazada']);
     } else if (categoria === 'chat') {
       query = query.eq('tipo', 'mensaje');
     } else if (categoria === 'citas') {
@@ -79,7 +79,7 @@ async function markAllRead(req, res) {
       .eq('leida', false);
 
     if (categoria === 'solicitudes') {
-      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected']);
+      query = query.in('tipo', ['solicitud', 'request_new', 'request_accepted', 'request_rejected', 'aceptada', 'rechazada']);
     } else if (categoria === 'chat') {
       query = query.eq('tipo', 'mensaje');
     } else if (categoria === 'citas') {

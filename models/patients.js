@@ -75,7 +75,7 @@ async function getAvailablePatients(treatment = null) {
         initial_diagnosis(especialidad_requerida, prioridad, nivel_dolor, tiempo_evolucion, problema_principal, created_at, activo)
       `)
       .eq('role', 'patient')
-      .eq('disponibilidad', 'disponible')
+      .not('disponibilidad', 'in', '("ocupado","suspendido")')
       .eq('patients.accepts_requests', true);
 
     if (busyPatientIds.length > 0) {
@@ -90,11 +90,31 @@ async function getAvailablePatients(treatment = null) {
     const { data, error } = await query;
     if (error) throw error;
     
-    return (data || []).map(row => {
+    const patientIds = (data || []).map(r => r.id);
+    let pastRequests = [];
+    if (patientIds.length > 0) {
+      const { data: reqs } = await db.supabase
+        .from('requests')
+        .select('patient_id, status')
+        .in('patient_id', patientIds)
+        .in('status', ['completed', 'abandoned']);
+      pastRequests = reqs || [];
+    }
+
+    const statsMap = {};
+    for (const r of pastRequests) {
+       if (!statsMap[r.patient_id]) statsMap[r.patient_id] = { completed: 0, abandoned: 0 };
+       if (r.status === 'completed') statsMap[r.patient_id].completed++;
+       if (r.status === 'abandoned') statsMap[r.patient_id].abandoned++;
+    }
+
+    let finalArray = (data || []).map(row => {
       const pat = Array.isArray(row.patients) ? row.patients[0] : row.patients;
       const activeDiagnosis = Array.isArray(row.initial_diagnosis) 
         ? row.initial_diagnosis.find(d => d.activo) || row.initial_diagnosis[0]
         : row.initial_diagnosis;
+        
+      const pStats = statsMap[row.id] || { completed: 0, abandoned: 0 };
 
       return {
         id: row.id,
@@ -105,6 +125,7 @@ async function getAvailablePatients(treatment = null) {
         disponibilidad: row.disponibilidad,
         role: row.role,
         created_at: row.created_at,
+        stats: pStats,
         patients: {
           age: pat.age,
           birth_date: pat.birth_date,
@@ -119,6 +140,16 @@ async function getAvailablePatients(treatment = null) {
         initial_diagnosis: activeDiagnosis || null
       };
     });
+    
+    finalArray.sort((a, b) => {
+       const abandonedA = a.stats.abandoned;
+       const abandonedB = b.stats.abandoned;
+       if (abandonedA > 0 && abandonedB === 0) return 1;
+       if (abandonedB > 0 && abandonedA === 0) return -1;
+       return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    return finalArray;
   } catch (e) {
     console.error('Error en getAvailablePatients:', e);
     return [];
@@ -135,6 +166,7 @@ async function updatePatient(patientId, patientData) {
     if (patientData.age !== undefined) updateData.age = patientData.age;
     if (patientData.address !== undefined || patientData.direccion !== undefined) updateData.direccion = patientData.address || patientData.direccion;
     if (patientData.medicalHistory !== undefined) updateData.medical_history = patientData.medicalHistory;
+    if (patientData.gender !== undefined) updateData.gender = patientData.gender;
     if (patientData.consultationReason !== undefined) updateData.consultation_reason = patientData.consultationReason;
     if (patientData.descripcionProblema !== undefined) updateData.descripcion_problema = patientData.descripcionProblema;
     if (patientData.intensidadDolor !== undefined) updateData.intensidad_dolor = patientData.intensidadDolor;
@@ -165,7 +197,7 @@ async function getAllPatients() {
       .from('profiles')
       .select(`
         *,
-        patients(age, birth_date, consultation_reason, medical_history, phone)
+        patients(age, birth_date, consultation_reason, medical_history, phone, accepts_requests)
       `)
       .eq('role', 'patient')
       .order('created_at', { ascending: false });
@@ -178,13 +210,15 @@ async function getAllPatients() {
         id: row.id,
         full_name: row.full_name,
         role: row.role,
+        disponibilidad: row.disponibilidad,
         created_at: row.created_at,
         patients: {
           age: pat.age,
           birth_date: pat.birth_date,
           consultation_reason: pat.consultation_reason,
           medical_history: pat.medical_history,
-          phone: pat.phone || row.phone
+          phone: pat.phone || row.phone,
+          accepts_requests: pat.accepts_requests
         }
       };
     });

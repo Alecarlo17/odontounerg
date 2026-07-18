@@ -25,4 +25,7 @@ router.post('/report', chatController.reportUser);
 // Obtener todos los reportes (admin)
 router.get('/reports', chatController.getAllReports);
 
+// Actualizar estado del reporte (admin)
+router.put('/reports/:id/status', chatController.updateReportStatus);
+
 module.exports = router;
